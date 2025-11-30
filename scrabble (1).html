@@ -1,0 +1,4007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Scrabble Game</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
+  <meta name="theme-color" content="#d4af37">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Scrabble">
+  
+  <style>
+    :root {
+      --board-bg: #e8d5b7;
+      --tile-bg: #f4e8d0;
+      --tile-shadow: rgba(139, 90, 43, 0.15);
+      --text-dark: #3d2817;
+      --accent: #8b5a2b;
+      --star: #d4af37;
+      --dls: #b8d4e8;
+      --tls: #4a7ba7;
+      --dws: #e8b8b8;
+      --tws: #c85a54;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: linear-gradient(135deg, #f5ebe0 0%, #e3d5ca 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: var(--text-dark);
+    }
+
+    h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 3.5rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .game-container {
+      max-width: 1400px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    .scores {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+      margin-bottom: 10px;
+    }
+
+    .score-card {
+      background: var(--tile-bg);
+      padding: 20px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px var(--tile-shadow);
+      transition: all 0.3s ease;
+      text-align: center;
+      border: 3px solid transparent;
+    }
+
+    .score-card.active {
+      border: 3px solid var(--accent);
+      background: linear-gradient(135deg, var(--tile-bg) 0%, rgba(244, 232, 208, 0.95) 100%);
+      animation: highlightPlayer 1s ease-in-out;
+    }
+
+    .score-card.inactive {
+      opacity: 0.6;
+    }
+
+    .score-label {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.7;
+      margin-bottom: 5px;
+    }
+
+    .score-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      transition: all 0.3s ease;
+    }
+
+    .score-card.active .score-value {
+      animation: letterPulse 1.5s ease-in-out infinite;
+    }
+
+    .board-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(15, 40px);
+      grid-template-rows: repeat(15, 40px);
+      gap: 2px;
+      background: var(--accent);
+      padding: 8px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      background: var(--board-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      border-radius: 2px;
+    }
+
+    .cell:hover:not(.occupied) {
+      background: #f0e0c8;
+      transform: scale(1.05);
+    }
+
+    .cell.occupied {
+      cursor: default;
+    }
+
+    .cell.preview {
+      background: #d4e8d4;
+    }
+
+    .cell.star {
+      background: var(--star);
+      color: white;
+    }
+
+    .cell.dls {
+      background: var(--dls);
+      color: var(--text-dark);
+    }
+
+    .cell.tls {
+      background: var(--tls);
+      color: white;
+    }
+
+    .cell.dws {
+      background: var(--dws);
+      color: var(--text-dark);
+    }
+
+    .cell.tws {
+      background: var(--tws);
+      color: white;
+    }
+
+    .cell.opponent-preview {
+      background: rgba(220, 53, 69, 0.15);
+      border: 2px dashed rgba(220, 53, 69, 0.5);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .tile {
+      width: 38px;
+      height: 38px;
+      background: var(--tile-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px var(--tile-shadow);
+      position: relative;
+      cursor: move;
+      user-select: none;
+    }
+
+    .tile .points {
+      position: absolute;
+      bottom: 2px;
+      right: 3px;
+      font-size: 0.65rem;
+      font-family: Georgia, 'Times New Roman', serif;
+      opacity: 0.7;
+    }
+
+    .rack-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .rack {
+      background: var(--accent);
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      box-shadow: 0 4px 12px var(--tile-shadow);
+      min-height: 60px;
+    }
+
+    .rack-tile {
+      width: 45px;
+      height: 45px;
+      background: var(--tile-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px var(--tile-shadow);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      user-select: none;
+    }
+
+    .rack-tile:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(139, 90, 43, 0.3);
+    }
+
+    .rack-tile.selected {
+      background: #ffe4b5;
+      transform: translateY(-8px);
+    }
+
+    .rack-tile .points {
+      position: absolute;
+      bottom: 3px;
+      right: 4px;
+      font-size: 0.7rem;
+      font-family: Georgia, 'Times New Roman', serif;
+      opacity: 0.7;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 12px var(--tile-shadow);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(139, 90, 43, 0.25);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: var(--tile-bg);
+      color: var(--text-dark);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .numpad-btn {
+      padding: 20px;
+      font-size: 1.8rem;
+      font-weight: bold;
+      background: rgba(244, 232, 208, 0.2);
+      color: #f4e8d0;
+      border: 3px solid #f4e8d0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: Georgia, serif;
+      min-width: 80px;
+      min-height: 80px;
+    }
+
+    .numpad-btn:hover {
+      background: rgba(244, 232, 208, 0.4);
+      transform: scale(1.05);
+    }
+
+    .numpad-btn:active {
+      transform: scale(0.95);
+      background: rgba(244, 232, 208, 0.6);
+    }
+
+    @keyframes flashDigit {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .flash {
+      animation: flashDigit 0.5s ease-in-out;
+    }
+
+    @keyframes flipCard {
+      0% { transform: rotateY(0deg); }
+      50% { transform: rotateY(90deg); }
+      100% { transform: rotateY(0deg); }
+    }
+
+    @keyframes highlightPlayer {
+      0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      }
+      50% { 
+        transform: scale(1.05);
+        box-shadow: 0 8px 24px rgba(139, 90, 43, 0.6), 0 0 30px rgba(244, 232, 208, 0.4);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { 
+        transform: scale(1);
+      }
+      50% { 
+        transform: scale(1.08);
+      }
+    }
+
+    @keyframes letterPulse {
+      0%, 100% { 
+        transform: scale(1);
+      }
+      50% { 
+        transform: scale(1.15);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes tileFromBag {
+      0% {
+        opacity: 0;
+        transform: translateY(-100px) scale(0.5) rotateZ(-20deg);
+      }
+      60% {
+        opacity: 1;
+        transform: translateY(10px) scale(1.1) rotateZ(5deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotateZ(0deg);
+      }
+    }
+
+    @keyframes flipIn {
+      0% {
+        transform: rotateY(90deg);
+        opacity: 0;
+      }
+      100% {
+        transform: rotateY(0deg);
+        opacity: 1;
+      }
+    }
+
+    .tile-entering {
+      animation: tileFromBag 0.6s ease-out;
+    }
+
+    .tile-flip {
+      animation: flipIn 0.3s ease-out;
+    }
+
+    .score-card.active {
+      border: 3px solid var(--accent);
+      background: linear-gradient(135deg, var(--tile-bg) 0%, rgba(244, 232, 208, 0.95) 100%);
+      animation: highlightPlayer 1s ease-in-out;
+    }
+
+    .score-card.inactive {
+      opacity: 0.6;
+    }
+
+    .rack-tile {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    #turnTransition {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes turnFlip {
+      0% { 
+        opacity: 1;
+        transform: scale(1) rotateY(0deg);
+      }
+      50% { 
+        opacity: 0.7;
+        transform: scale(1.1) rotateY(180deg);
+      }
+      100% { 
+        opacity: 1;
+        transform: scale(1) rotateY(360deg);
+      }
+    }
+
+    .turn-flip {
+      animation: turnFlip 0.6s ease-in-out;
+    }
+
+    .message {
+      text-align: center;
+      padding: 15px;
+      background: var(--tile-bg);
+      border-radius: 8px;
+      font-size: 1.1rem;
+      box-shadow: 0 2px 8px var(--tile-shadow);
+      animation: fadeIn 0.5s ease;
+    }
+
+    .info-panel {
+      background: var(--tile-bg);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--tile-shadow);
+      max-width: 300px;
+    }
+
+    .info-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+      color: var(--accent);
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(139, 90, 43, 0.1);
+    }
+
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+
+    @keyframes tilePlace {
+      0% {
+        transform: scale(0.8) rotate(-5deg);
+      }
+      60% {
+        transform: scale(1.1) rotate(2deg);
+      }
+      100% {
+        transform: scale(1) rotate(0deg);
+      }
+    }
+
+    .tile-placed {
+      animation: tilePlace 0.4s ease;
+    }
+
+  </style>
+  
+  <!-- Theme System Styles -->
+  <link rel="stylesheet" href="data:text/css;base64,LyogVGhlbWUgU2VsZWN0b3IgVUkgKi8KLnRoZW1lLXNlbGVjdG9yIHsgcG9zaXRpb246IGZpeGVkOyB0b3A6IDIwcHg7IHJpZ2h0OiAyMHB4OyB6LWluZGV4OiAxMDAwMDsgfQoudGhlbWUtdG9nZ2xlLWJ0biB7IGRpc3BsYXk6IGZsZXg7IGFsaWduLWl0ZW1zOiBjZW50ZXI7IGdhcDogOHB4OyBwYWRkaW5nOiAxMnB4IDIwcHg7IGJhY2tncm91bmQ6IGxpbmVhci1ncmFkaWVudCgxMzVkZWcsICNmZmZmZmYgMCUsICNmOGY5ZmEgMTAwJSk7IGJvcmRlcjogMnB4IHNvbGlkICNkNGFmMzc7IGJvcmRlci1yYWRpdXM6IDI1cHg7IGN1cnNvcjogcG9pbnRlcjsgYm94LXNoYWRvdzogMCA0cHggMTJweCByZ2JhKDAsIDAsIDAsIDAuMTUpOyB0cmFuc2l0aW9uOiBhbGwgMC4zcyBlYXNlOyBmb250LXdlaWdodDogNjAwOyBjb2xvcjogIzJjM2U1MDsgZm9udC1zaXplOiAwLjlyZW07IH0KLnRoZW1lLXRvZ2dsZS1idG46aG92ZXIgeyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVkoLTJweCk7IGJveC1zaGFkb3c6IDAgNnB4IDIwcHggcmdiYSgyMTIsIDE3NSwgNTUsIDAuMyk7IH0KLnRoZW1lLWljb24geyBmb250LXNpemU6IDEuMnJlbTsgfQoudGhlbWUtbGFiZWwgeyB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOyBsZXR0ZXItc3BhY2luZzogMC41cHg7IH0KLnRoZW1lLW1lbnUgeyBwb3NpdGlvbjogYWJzb2x1dGU7IHRvcDogNjBweDsgcmlnaHQ6IDA7IHdpZHRoOiAzMjBweDsgYmFja2dyb3VuZDogd2hpdGU7IGJvcmRlci1yYWRpdXM6IDEycHg7IGJveC1zaGFkb3c6IDAgMTBweCA0MHB4IHJnYmEoMCwgMCwgMCwgMC4yKTsgYm9yZGVyOiAycHggc29saWQgI2Q0YWYzNzsgb3ZlcmZsb3c6IGhpZGRlbjsgYW5pbWF0aW9uOiBtZW51U2xpZGVJbiAwLjNzIGVhc2Utb3V0OyB9CkBrZXlmcmFtZXMgbWVudVNsaWRlSW4geyBmcm9tIHsgb3BhY2l0eTogMDsgdHJhbnNmb3JtOiB0cmFuc2xhdGVZKC0xMHB4KTsgfSB0byB7IG9wYWNpdHk6IDE7IHRyYW5zZm9ybTogdHJhbnNsYXRlWSgwKTsgfSB9Ci50aGVtZS1tZW51LWhlYWRlciB7IHBhZGRpbmc6IDE2cHggMjBweDsgYmFja2dyb3VuZDogbGluZWFyLWdyYWRpZW50KDEzNWRlZywgI2Q0YWYzNyAwJSwgI2Y0ZDAzZiAxMDAlKTsgY29sb3I6IHdoaXRlOyBmb250LXdlaWdodDogNzAwOyBmb250LXNpemU6IDEuMXJlbTsgdGV4dC1hbGlnbjogY2VudGVyOyBsZXR0ZXItc3BhY2luZzogMXB4OyB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOyB9Ci50aGVtZS1vcHRpb24geyBkaXNwbGF5OiBmbGV4OyBhbGlnbi1pdGVtczogY2VudGVyOyBnYXA6IDEycHg7IHBhZGRpbmc6IDE2cHggMjBweDsgYmFja2dyb3VuZDogd2hpdGU7IGJvcmRlcjogbm9uZTsgYm9yZGVyLWJvdHRvbTogMXB4IHNvbGlkICNlOWVjZWY7IGN1cnNvcjogcG9pbnRlcjsgdHJhbnNpdGlvbjogYWxsIDAuMnMgZWFzZTsgd2lkdGg6IDEwMCU7IHRleHQtYWxpZ246IGxlZnQ7IHBvc2l0aW9uOiByZWxhdGl2ZTsgfQoudGhlbWUtb3B0aW9uOmxhc3QtY2hpbGQgeyBib3JkZXItYm90dG9tOiBub25lOyB9Ci50aGVtZS1vcHRpb246aG92ZXIgeyBiYWNrZ3JvdW5kOiBsaW5lYXItZ3JhZGllbnQoMTM1ZGVnLCAjZjhmOWZhIDAlLCAjZmZmZmZmIDEwMCUpOyB0cmFuc2Zvcm06IHRyYW5zbGF0ZVgoNXB4KTsgfQoudGhlbWUtb3B0aW9uLmFjdGl2ZSB7IGJhY2tncm91bmQ6IGxpbmVhci1ncmFkaWVudCgxMzVkZWcsICNmZmY5ZTYgMCUsICNmZmZlZjcgMTAwJSk7IGJvcmRlci1sZWZ0OiA0cHggc29saWQgI2Q0YWYzNzsgfQoudGhlbWUtb3B0aW9uLWljb24geyBmb250LXNpemU6IDEuOHJlbTsgZmxleC1zaHJpbms6IDA7IH0KLnRoZW1lLW9wdGlvbi1pbmZvIHsgZmxleDogMTsgfQoudGhlbWUtb3B0aW9uLW5hbWUgeyBmb250LXdlaWdodDogNzAwOyBjb2xvcjogIzJjM2U1MDsgZm9udC1zaXplOiAxcmVtOyBtYXJnaW4tYm90dG9tOiA0cHg7IH0KLnRoZW1lLW9wdGlvbi1kZXNjIHsgZm9udC1zaXplOiAwLjhyZW07IGNvbG9yOiAjN2Y4YzhkOyBsaW5lLWhlaWdodDogMS4zOyB9Ci50aGVtZS1jaGVjayB7IHBvc2l0aW9uOiBhYnNvbHV0ZTsgcmlnaHQ6IDIwcHg7IGZvbnQtc2l6ZTogMS4ycmVtOyBjb2xvcjogIzI3YWU2MDsgZm9udC13ZWlnaHQ6IDcwMDsgfQoudGhlbWUtbG9hZGVyIHsgcG9zaXRpb246IGZpeGVkOyB0b3A6IDA7IGxlZnQ6IDA7IHJpZ2h0OiAwOyBib3R0b206IDA7IGJhY2tncm91bmQ6IHJnYmEoMCwgMCwgMCwgMC44KTsgYmFja2Ryb3AtZmlsdGVyOiBibHVyKDEwcHgpOyB6LWluZGV4OiAyMDAwMDsgZGlzcGxheTogbm9uZTsgYWxpZ24taXRlbXM6IGNlbnRlcjsganVzdGlmeS1jb250ZW50OiBjZW50ZXI7IH0KLmxvYWRlci1jb250ZW50IHsgdGV4dC1hbGlnbjogY2VudGVyOyBjb2xvcjogd2hpdGU7IH0KLmxvYWRlci1zcGlubmVyIHsgd2lkdGg6IDYwcHg7IGhlaWdodDogNjBweDsgYm9yZGVyOiA0cHggc29saWQgcmdiYSgyNTUsIDI1NSwgMjU1LCAwLjMpOyBib3JkZXItdG9wLWNvbG9yOiAjZDRhZjM3OyBib3JkZXItcmFkaXVzOiA1MCU7IGFuaW1hdGlvbjogc3BpbiAxcyBsaW5lYXIgaW5maW5pdGU7IG1hcmdpbjogMCBhdXRvIDIwcHg7IH0KQGtleWZyYW1lcyBzcGluIHsgdG8geyB0cmFuc2Zvcm06IHJvdGF0ZSgzNjBkZWcpOyB9IH0KLmxvYWRlci10ZXh0IHsgZm9udC1zaXplOiAxLjJyZW07IGZvbnQtd2VpZ2h0OiA2MDA7IGNvbG9yOiB3aGl0ZTsgfQpAbWVkaWEgKG1heC13aWR0aDogNzY4cHgpIHsgLnRoZW1lLXNlbGVjdG9yIHsgdG9wOiAxMHB4OyByaWdodDogMTBweDsgfSAudGhlbWUtdG9nZ2xlLWJ0biB7IHBhZGRpbmc6IDEwcHggMTZweDsgfSAudGhlbWUtbGFiZWwgeyBkaXNwbGF5OiBub25lOyB9IC50aGVtZS1tZW51IHsgd2lkdGg6IDI4MHB4OyB9IH0=">
+  
+  <!-- All 4 Themes Embedded -->
+  <style id="all-themes">
+    /* Light Luxury Theme - Default */
+    .theme-light-luxury { --accent: #d4af37; }
+    body.theme-light-luxury { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important; }
+    .theme-light-luxury h1 { background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .theme-light-luxury .cell.tws { background: #ffebee !important; color: #c62828 !important; border-color: #c62828 !important; }
+    .theme-light-luxury .cell.dws { background: #fff3e0 !important; color: #ef6c00 !important; border-color: #ef6c00 !important; }
+    .theme-light-luxury .cell.tls { background: #e3f2fd !important; color: #1565c0 !important; border-color: #1565c0 !important; }
+    .theme-light-luxury .cell.dls { background: #e8f5e9 !important; color: #2e7d32 !important; border-color: #2e7d32 !important; }
+    .theme-light-luxury .cell.center { background: #fff9c4 !important; color: #f57f17 !important; border-color: #f57f17 !important; }
+    
+    /* Dark Modern Theme */
+    body.theme-dark-modern { 
+      background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%) !important; 
+      color: #ecf0f1 !important; 
+    }
+    .theme-dark-modern h1 { background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 10px rgba(52, 152, 219, 0.5)); }
+    .theme-dark-modern .game-container { background: rgba(26, 26, 26, 0.95); border: 2px solid rgba(52, 152, 219, 0.3); box-shadow: 0 0 40px rgba(52, 152, 219, 0.2); }
+    .theme-dark-modern .board { background: #1a1a1a; border: 3px solid #3498db; box-shadow: 0 0 30px rgba(52, 152, 219, 0.3); }
+    .theme-dark-modern .cell { background: #2c2c2c; border: 1px solid #3a3a3a; color: rgba(255, 255, 255, 0.3); }
+    .theme-dark-modern .cell:hover:not(.occupied) { background: rgba(52, 152, 219, 0.2); border-color: #3498db; box-shadow: 0 0 10px rgba(52, 152, 219, 0.5); }
+    .theme-dark-modern .cell.tws { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important; color: white !important; }
+    .theme-dark-modern .cell.dws { background: linear-gradient(135deg, #e67e22 0%, #d35400 100%) !important; color: white !important; }
+    .theme-dark-modern .cell.tls { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important; color: white !important; }
+    .theme-dark-modern .cell.dls { background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%) !important; color: white !important; }
+    .theme-dark-modern .cell.center { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important; color: white !important; box-shadow: 0 0 20px rgba(243, 156, 18, 0.6); }
+    .theme-dark-modern .message { background: rgba(52, 152, 219, 0.2); border: 2px solid rgba(52, 152, 219, 0.5); color: white; }
+    .theme-dark-modern .score-card { background: linear-gradient(135deg, rgba(52, 152, 219, 0.2) 0%, rgba(41, 128, 185, 0.2) 100%); border: 2px solid rgba(52, 152, 219, 0.4); }
+    .theme-dark-modern .score-card.active { border-color: #3498db; box-shadow: 0 0 30px rgba(52, 152, 219, 0.6); }
+    .theme-dark-modern .btn-primary { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+    .theme-dark-modern .rack { background: rgba(0, 0, 0, 0.5); border: 2px solid rgba(52, 152, 219, 0.4); }
+    
+    /* Classic Wood Theme */
+    body.theme-classic-wood { 
+      background: linear-gradient(135deg, #e8d5b7 0%, #d4b896 100%) !important; 
+      color: #3d2817 !important; 
+    }
+    .theme-classic-wood h1 { font-family: Georgia, serif; background: linear-gradient(135deg, #8b4513 0%, #d2691e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .theme-classic-wood .game-container { background: rgba(210, 180, 140, 0.95); border: 4px solid #8b7355; }
+    .theme-classic-wood .board { background: #c19a6b; border: 4px solid #8b7355; }
+    .theme-classic-wood .cell { background: linear-gradient(145deg, #c8a882 0%, #b8956a 100%); border: 1px solid #8b7355; color: rgba(61, 40, 23, 0.4); font-family: Georgia, serif; }
+    .theme-classic-wood .cell.tws { background: #8b2500 !important; color: white !important; }
+    .theme-classic-wood .cell.dws { background: #cd853f !important; color: white !important; }
+    .theme-classic-wood .cell.tls { background: #4682b4 !important; color: white !important; }
+    .theme-classic-wood .cell.dls { background: #87ceeb !important; color: white !important; }
+    .theme-classic-wood .cell.center { background: #ffd700 !important; color: #8b7355 !important; }
+    .theme-classic-wood .tile { background: linear-gradient(145deg, #fffef7 0%, #f4e8d0 100%); border: 2px solid #8b7355; font-family: Georgia, serif; }
+    .theme-classic-wood .rack { background: linear-gradient(145deg, #b8956a 0%, #a0826d 100%); border: 3px solid #8b7355; }
+    .theme-classic-wood .score-card { background: linear-gradient(135deg, rgba(210, 180, 140, 0.95) 0%, rgba(184, 149, 106, 0.95) 100%); border: 3px solid #8b7355; }
+    .theme-classic-wood .btn-primary { background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%); }
+    .theme-classic-wood .message { background: rgba(244, 232, 208, 0.98); border: 2px solid #8b7355; color: #3d2817; font-family: Georgia, serif; }
+    
+    /* Neon Gaming Theme */
+    body.theme-neon-gaming { 
+      background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%) !important; 
+      color: white !important; 
+      position: relative;
+    }
+    
+    /* Neon border effect around entire page */
+    body.theme-neon-gaming::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 4px solid #00f5ff;
+      box-shadow: 
+        inset 0 0 30px rgba(0, 245, 255, 0.3),
+        0 0 30px rgba(0, 245, 255, 0.5);
+      pointer-events: none;
+      z-index: 9999;
+      animation: neonBorderPulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes neonBorderPulse {
+      0%, 100% { 
+        box-shadow: 
+          inset 0 0 30px rgba(0, 245, 255, 0.3),
+          0 0 30px rgba(0, 245, 255, 0.5);
+      }
+      50% { 
+        box-shadow: 
+          inset 0 0 50px rgba(0, 245, 255, 0.5),
+          0 0 50px rgba(0, 245, 255, 0.8);
+      }
+    }
+    
+    /* Animated starfield background */
+    body.theme-neon-gaming::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: 
+        radial-gradient(2px 2px at 20px 30px, white, transparent),
+        radial-gradient(2px 2px at 60px 70px, white, transparent),
+        radial-gradient(1px 1px at 50px 50px, white, transparent),
+        radial-gradient(1px 1px at 130px 80px, white, transparent),
+        radial-gradient(2px 2px at 90px 10px, white, transparent);
+      background-repeat: repeat;
+      background-size: 200px 200px;
+      opacity: 0.4;
+      animation: twinkle 5s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.2; }
+    }
+    
+    .theme-neon-gaming h1 { 
+      font-family: 'Courier New', monospace; 
+      font-weight: 900; 
+      background: linear-gradient(135deg, #00f5ff 0%, #ff006e 50%, #8338ec 100%); 
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent; 
+      filter: drop-shadow(0 0 20px #00f5ff);
+      position: relative;
+      z-index: 10;
+    }
+    .theme-neon-gaming .game-container { 
+      background: rgba(10, 14, 39, 0.9); 
+      border: 2px solid #00f5ff; 
+      box-shadow: 0 0 30px #00f5ff;
+      position: relative;
+      z-index: 10;
+    }
+    .theme-neon-gaming .board { background: #050814; border: 3px solid #00f5ff; box-shadow: 0 0 40px rgba(0, 245, 255, 0.5); }
+    .theme-neon-gaming .cell { background: rgba(10, 14, 39, 0.8); border: 1px solid rgba(0, 245, 255, 0.3); color: rgba(0, 245, 255, 0.4); font-family: 'Courier New', monospace; }
+    .theme-neon-gaming .cell:hover:not(.occupied) { background: rgba(0, 245, 255, 0.1); border-color: #00f5ff; box-shadow: 0 0 15px rgba(0, 245, 255, 0.5); }
+    .theme-neon-gaming .cell.tws { background: radial-gradient(circle, rgba(255, 0, 110, 0.3) 0%, rgba(139, 0, 76, 0.3) 100%) !important; border-color: #ff006e; color: white !important; box-shadow: 0 0 15px #ff006e; }
+    .theme-neon-gaming .cell.dws { background: radial-gradient(circle, rgba(255, 190, 11, 0.3) 0%, rgba(179, 133, 8, 0.3) 100%) !important; border-color: #ffbe0b; color: white !important; box-shadow: 0 0 15px #ffbe0b; }
+    .theme-neon-gaming .cell.tls { background: radial-gradient(circle, rgba(131, 56, 236, 0.3) 0%, rgba(91, 39, 165, 0.3) 100%) !important; border-color: #8338ec; color: white !important; box-shadow: 0 0 15px #8338ec; }
+    .theme-neon-gaming .cell.dls { background: radial-gradient(circle, rgba(62, 255, 0, 0.3) 0%, rgba(43, 179, 0, 0.3) 100%) !important; border-color: #3eff00; color: white !important; box-shadow: 0 0 15px #3eff00; }
+    .theme-neon-gaming .cell.center { background: radial-gradient(circle, rgba(0, 245, 255, 0.4) 0%, rgba(0, 172, 179, 0.4) 100%) !important; border-color: #00f5ff; color: white !important; box-shadow: 0 0 30px #00f5ff; animation: centerPulse 2s ease-in-out infinite; }
+    @keyframes centerPulse { 0%, 100% { box-shadow: 0 0 30px #00f5ff; } 50% { box-shadow: 0 0 50px #00f5ff; } }
+    .theme-neon-gaming .tile { background: linear-gradient(145deg, #1a1f3a 0%, #0f1228 100%); border: 2px solid #00f5ff; color: white; box-shadow: 0 0 15px rgba(0, 245, 255, 0.5); font-family: 'Courier New', monospace; font-weight: 900; }
+    .theme-neon-gaming .tile:hover { border-color: #ff006e; box-shadow: 0 0 25px #ff006e; }
+    .theme-neon-gaming .rack { background: rgba(10, 14, 39, 0.9); border: 2px solid #8338ec; box-shadow: 0 0 20px rgba(131, 56, 236, 0.4); }
+    .theme-neon-gaming .score-card { background: linear-gradient(135deg, rgba(10, 14, 39, 0.95) 0%, rgba(26, 31, 58, 0.95) 100%); border: 2px solid #00f5ff; box-shadow: 0 0 20px rgba(0, 245, 255, 0.4); }
+    .theme-neon-gaming .score-card.active { border-color: #ff006e; box-shadow: 0 0 30px #ff006e; }
+    .theme-neon-gaming .btn-primary { background: linear-gradient(135deg, #8338ec 0%, #ff006e 100%); border: 2px solid #ff006e; color: white; box-shadow: 0 0 20px rgba(255, 0, 110, 0.5); font-family: 'Courier New', monospace; font-weight: 700; }
+    .theme-neon-gaming .message { background: rgba(10, 14, 39, 0.95); border: 2px solid #00f5ff; color: white; font-family: 'Courier New', monospace; box-shadow: 0 0 20px rgba(0, 245, 255, 0.4); }
+    
+    /* Fix theme selector for neon theme */
+    .theme-neon-gaming .theme-selector { z-index: 10000; }
+    
+    /* ========================================
+       MOBILE RESPONSIVE STYLES
+       ======================================== */
+    
+    /* Tablet and smaller */
+    @media (max-width: 1024px) {
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+      }
+      
+      .game-container {
+        padding: 20px;
+        gap: 15px;
+      }
+      
+      .board {
+        max-width: 600px;
+      }
+      
+      .cell {
+        font-size: 0.6rem;
+      }
+    }
+    
+    /* Mobile landscape and smaller tablets */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 10px;
+      }
+      
+      .game-container {
+        padding: 15px;
+        gap: 12px;
+      }
+      
+      /* Smaller board for mobile */
+      .board {
+        max-width: 100%;
+        padding: 4px;
+        gap: 1px;
+      }
+      
+      .cell {
+        font-size: 0.5rem;
+        border-width: 1px;
+      }
+      
+      /* Smaller tiles */
+      .tile {
+        font-size: 1rem;
+      }
+      
+      .tile .letter {
+        font-size: 1.3rem;
+      }
+      
+      .tile .points {
+        font-size: 0.6rem;
+        bottom: 2px;
+        right: 4px;
+      }
+      
+      /* Rack optimization */
+      .rack-container {
+        padding: 10px;
+      }
+      
+      .rack {
+        gap: 4px;
+        padding: 10px;
+        min-height: 60px;
+      }
+      
+      /* Score cards stack vertically on mobile */
+      .scores {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .score-card {
+        padding: 15px;
+      }
+      
+      .score-card .score-value {
+        font-size: 2rem;
+      }
+      
+      /* Buttons */
+      .controls {
+        gap: 8px;
+      }
+      
+      button {
+        padding: 10px 18px;
+        font-size: 0.9rem;
+      }
+      
+      /* Message */
+      .message {
+        padding: 12px 18px;
+        font-size: 1rem;
+      }
+      
+      /* Info display */
+      .info {
+        flex-direction: column;
+        gap: 8px;
+        font-size: 0.85rem;
+      }
+      
+      .info-item {
+        padding: 6px 12px;
+      }
+      
+      /* Mode selection buttons */
+      #modeSelection button,
+      #deviceSelection button {
+        font-size: 1rem;
+        padding: 18px 24px;
+      }
+      
+      /* Theme selector mobile */
+      .theme-selector {
+        top: 10px;
+        right: 10px;
+      }
+      
+      .theme-toggle-btn {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+      }
+      
+      .theme-icon {
+        font-size: 1rem;
+      }
+      
+      .theme-label {
+        display: none; /* Hide "Themes" text on mobile */
+      }
+      
+      .theme-menu {
+        width: 280px;
+        right: -10px; /* Align with button */
+      }
+      
+      .theme-option {
+        padding: 12px 16px;
+      }
+      
+      .theme-option-icon {
+        font-size: 1.5rem;
+      }
+      
+      .theme-option-name {
+        font-size: 0.9rem;
+      }
+      
+      .theme-option-desc {
+        font-size: 0.75rem;
+      }
+    }
+    
+    /* Small mobile phones */
+    @media (max-width: 480px) {
+      body {
+        padding: 5px;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+      }
+      
+      .game-container {
+        padding: 10px;
+        gap: 10px;
+      }
+      
+      /* Very compact board */
+      .board {
+        padding: 3px;
+        gap: 1px;
+      }
+      
+      .cell {
+        font-size: 0.4rem;
+        min-height: unset;
+      }
+      
+      /* Even smaller tiles */
+      .tile {
+        font-size: 0.8rem;
+        border-width: 1px;
+      }
+      
+      .tile .letter {
+        font-size: 1rem;
+      }
+      
+      .tile .points {
+        font-size: 0.5rem;
+        bottom: 1px;
+        right: 2px;
+      }
+      
+      /* Rack */
+      .rack {
+        gap: 3px;
+        padding: 8px;
+        min-height: 50px;
+      }
+      
+      /* Score cards */
+      .score-card {
+        padding: 12px;
+      }
+      
+      .score-card .label {
+        font-size: 0.85rem;
+      }
+      
+      .score-card .score-value {
+        font-size: 1.8rem;
+      }
+      
+      /* Buttons smaller */
+      button {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+      }
+      
+      /* Message */
+      .message {
+        padding: 10px 14px;
+        font-size: 0.9rem;
+      }
+      
+      /* Mode selection */
+      #modeSelection button,
+      #deviceSelection button {
+        font-size: 0.9rem;
+        padding: 15px 20px;
+      }
+      
+      /* Difficulty slider */
+      #difficultySlider {
+        height: 10px;
+      }
+      
+      #difficultySlider::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+      }
+      
+      /* Theme menu even smaller */
+      .theme-menu {
+        width: 260px;
+      }
+      
+      .theme-option {
+        padding: 10px 12px;
+      }
+      
+      .theme-option-icon {
+        font-size: 1.3rem;
+      }
+    }
+    
+    /* Touch optimization for all mobile devices */
+    @media (hover: none) and (pointer: coarse) {
+      /* Larger touch targets */
+      .cell {
+        min-height: 30px;
+        min-width: 30px;
+      }
+      
+      .tile {
+        cursor: grab;
+        touch-action: none;
+        min-height: 40px;
+        min-width: 40px;
+      }
+      
+      .tile:active {
+        cursor: grabbing;
+      }
+      
+      button {
+        min-height: 44px; /* iOS recommended touch target */
+        cursor: pointer;
+      }
+      
+      /* Prevent text selection during drag */
+      .board,
+      .rack,
+      .tile {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Better touch feedback */
+      .tile:active {
+        transform: scale(0.95);
+      }
+      
+      .cell:active:not(.occupied) {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+    
+    /* Landscape mode on mobile */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .scores {
+        flex-direction: row;
+      }
+      
+      .board {
+        max-width: 400px;
+      }
+    }
+    
+    /* Very small screens - ultra compact */
+    @media (max-width: 360px) {
+      h1 {
+        font-size: 1.3rem;
+      }
+      
+      .board {
+        padding: 2px;
+      }
+      
+      .cell {
+        font-size: 0.35rem;
+      }
+      
+      .tile .letter {
+        font-size: 0.9rem;
+      }
+      
+      .rack {
+        gap: 2px;
+        padding: 6px;
+      }
+    }
+  </style>
+  
+</head>
+<body class="theme-light-luxury">
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  
+  <!-- Dictionary Loading Status -->
+  <div id="dict-status" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #4CAF50;
+    color: white;
+    padding: 8px;
+    text-align: center;
+    z-index: 10000;
+    font-size: 13px;
+  ">
+    📚 Loading SOWPODS dictionary (267K words)...
+  </div>
+  
+  <h1>Scrabble</h1>
+  
+  <!-- Manual Test Button for Update Notification -->
+  <div style="position: fixed; bottom: 20px; left: 20px; z-index: 10000;">
+    <button onclick="showUpdateNotification('1.0.1')" style="
+      background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+      transition: all 0.2s;
+    " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      🧪 Test Update Notification
+    </button>
+  </div>
+  
+  <div class="game-container" id="modeSelection">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Choose Game Mode</div>
+      <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn-primary" onclick="showDifficulty()" style="padding: 20px 40px; font-size: 1.2rem;">
+          Play vs AI
+        </button>
+        <button class="btn-primary" onclick="showDeviceSelection()" style="padding: 20px 40px; font-size: 1.2rem;">
+          2 Players
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Device Selection Screen -->
+  <div class="game-container" id="deviceSelection" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Choose Play Mode</div>
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px; margin: 0 auto;">
+        
+        <button class="btn-primary" onclick="showPlayerNames()" style="padding: 30px; font-size: 1.1rem; text-align: left;">
+          <div style="font-weight: bold; margin-bottom: 8px;">📱 One Device</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Pass and play on the same device</div>
+        </button>
+        
+        <button class="btn-primary" onclick="showMultiplayerSetup()" style="padding: 30px; font-size: 1.1rem; text-align: left;">
+          <div style="font-weight: bold; margin-bottom: 8px;">🔗 Two Devices (Online)</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Play with a friend on different devices</div>
+        </button>
+        <button class="btn-secondary" onclick="backToModeSelection()" style="margin-top: 20px;">
+          Back
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multiplayer Setup Screen -->
+  <div class="game-container" id="multiplayerSetup" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Online Multiplayer</div>
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px; margin: 0 auto;">
+        
+        <!-- Name input -->
+        <div>
+          <label style="display: block; margin-bottom: 12px; font-weight: 600; text-align: left;">Your Name:</label>
+          <input type="text" id="onlinePlayerName" placeholder="Enter your name" 
+                 style="width: 100%; padding: 12px; font-size: 1rem; border: 2px solid var(--accent); border-radius: 8px; font-family: Georgia, serif;">
+        </div>
+        
+        <button class="btn-primary" onclick="createOnlineGame()" style="padding: 30px; font-size: 1.1rem;">
+          <div style="font-weight: bold; margin-bottom: 8px;">🎮 Create Game</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Start a new game and share code with friend</div>
+        </button>
+        <button class="btn-primary" onclick="showJoinGame()" style="padding: 30px; font-size: 1.1rem;">
+          <div style="font-weight: bold; margin-bottom: 8px;">🔑 Join Game</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Enter a game code to join friend's game</div>
+        </button>
+        <button class="btn-secondary" onclick="backToDeviceSelection()" style="margin-top: 20px;">
+          Back
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Game Screen -->
+  <div class="game-container" id="createGameScreen" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Creating Game...</div>
+      <div style="max-width: 500px; margin: 0 auto;">
+        <div id="connectionStatus" style="padding: 20px; background: rgba(139, 90, 43, 0.1); border-radius: 12px; margin-bottom: 20px;">
+          <div style="font-size: 1.1rem; margin-bottom: 15px;">⏳ Connecting to server...</div>
+        </div>
+        <div id="gameCodeDisplay" style="display: none;">
+          <div style="font-size: 1.1rem; margin-bottom: 15px;">Share this code with your friend:</div>
+          <div style="font-size: 3rem; font-weight: bold; color: var(--accent); padding: 30px; background: rgba(139, 90, 43, 0.1); border-radius: 12px; margin-bottom: 20px; letter-spacing: 8px;" id="gameCode"></div>
+          <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 20px;">Waiting for opponent to join...</div>
+        </div>
+        <button class="btn-secondary" onclick="cancelOnlineGame()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Game Screen -->
+  <div class="game-container" id="joinGameScreen" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Join Game</div>
+      <div style="max-width: 500px; margin: 0 auto;">
+        <label style="display: block; margin-bottom: 12px; font-weight: 600; text-align: left;">Enter Game Code:</label>
+        <input type="text" id="joinGameCode" placeholder="XXXXXX" maxlength="6" 
+               style="width: 100%; padding: 20px; font-size: 2rem; text-align: center; border: 2px solid var(--accent); border-radius: 12px; font-family: Georgia, serif; text-transform: uppercase; letter-spacing: 8px; margin-bottom: 20px;">
+        <div id="joinStatus" style="min-height: 24px; color: #ff6b6b; margin-bottom: 20px;"></div>
+        <div style="display: flex; gap: 15px;">
+          <button class="btn-secondary" onclick="backToMultiplayerSetup()" style="flex: 1;">Back</button>
+          <button class="btn-primary" onclick="joinOnlineGame()" style="flex: 1;">Join Game</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-container" id="difficultySelection" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Choose AI Difficulty</div>
+      <div style="max-width: 500px; margin: 0 auto;">
+        
+        <!-- Difficulty Slider -->
+        <div style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 2rem;">🐣</span>
+            <span id="difficultyLabel" style="font-size: 1.3rem; font-weight: bold; color: var(--accent);">Level 5</span>
+            <span style="font-size: 2rem;">🏆</span>
+          </div>
+          
+          <input type="range" id="difficultySlider" min="1" max="10" value="5" 
+                 style="width: 100%; height: 8px; border-radius: 5px; outline: none; 
+                        background: linear-gradient(to right, #4CAF50, #FFC107, #FF5722);
+                        -webkit-appearance: none; appearance: none; cursor: pointer;">
+          
+          <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.9rem; opacity: 0.7;">
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>4</span>
+            <span>5</span>
+            <span>6</span>
+            <span>7</span>
+            <span>8</span>
+            <span>9</span>
+            <span>10</span>
+          </div>
+          
+          <div id="difficultyDescription" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; min-height: 60px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">Balanced Player</div>
+            <div style="font-size: 0.9rem; opacity: 0.8;">Plays decent moves with some strategy</div>
+          </div>
+        </div>
+        
+        <button class="btn-primary" onclick="startGameWithSlider()" style="padding: 15px 40px; font-size: 1.1rem; margin-top: 10px;">
+          Start Game
+        </button>
+        <button class="btn-secondary" onclick="backToModeSelection()" style="margin-top: 15px;">
+          Back
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    /* Custom slider thumb */
+    #difficultySlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid var(--accent);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    
+    #difficultySlider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid var(--accent);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+  </style>
+
+  <div class="game-container" id="playerNames" style="display: none;">
+    <div style="text-align: center; padding: 40px;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Enter Player Names</div>
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 400px; margin: 0 auto;">
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Player 1 Name:</label>
+          <input type="text" id="player1Name" placeholder="Player 1" 
+                 style="width: 100%; padding: 12px; font-size: 1rem; border: 2px solid var(--accent); border-radius: 8px; font-family: Georgia, serif;">
+        </div>
+        
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Player 2 Name:</label>
+          <input type="text" id="player2Name" placeholder="Player 2" 
+                 style="width: 100%; padding: 12px; font-size: 1rem; border: 2px solid var(--accent); border-radius: 8px; font-family: Georgia, serif;">
+        </div>
+        
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+          <button class="btn-secondary" onclick="backToDeviceSelection()" style="flex: 1;">Back</button>
+          <button class="btn-primary" onclick="startGameWithNames()" style="flex: 1;">Start Game</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-container" id="gameBoard" style="display: none;">
+    <div class="scores">
+      <div class="score-card active" id="playerScoreCard">
+        <div class="score-label" id="player1Label">Player 1</div>
+        <div class="score-value" id="playerScore">0</div>
+      </div>
+      <div class="score-card" id="aiScoreCard">
+        <div class="score-label" id="player2Label">AI</div>
+        <div class="score-value" id="aiScore">0</div>
+      </div>
+    </div>
+
+    <!-- Turn transition overlay for 2-player mode -->
+    <div id="turnTransition" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(139, 90, 43, 0.95); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; gap: 30px;">
+      <div style="font-size: 2.5rem; color: #f4e8d0; font-weight: bold; text-align: center;" id="transitionPlayerName"></div>
+      <div style="font-size: 1.3rem; color: #e8d5b7; text-align: center; max-width: 500px; line-height: 1.6;">
+        Pass the device to <span id="transitionNextPlayer" style="font-weight: bold;"></span>
+      </div>
+      <div style="font-size: 1rem; color: #e8d5b7; opacity: 0.9; text-align: center; max-width: 400px;">
+        Your tiles will be hidden when the game starts. Click "Ready?" to begin your turn.
+      </div>
+      <button class="btn-primary" onclick="game.confirmTurnTransition()" style="padding: 20px 50px; font-size: 1.3rem;">
+        Ready?
+      </button>
+    </div>
+
+    <div class="message" id="message">Select tiles from your rack and click on the board to place them</div>
+    
+    <!-- Cheating penalty indicator - DISABLED
+    <div id="cheatingWarning" style="display: none; text-align: center; padding: 15px; background: linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%); border-radius: 8px; color: white; font-size: 1.1rem; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(201, 42, 42, 0.4); animation: pulse 1.5s ease-in-out infinite;">
+      ⚠️ CHEATING DETECTED! -10 Points Penalty ⚠️
+    </div>
+    -->
+
+    <div class="board-container">
+      <div class="board" id="board"></div>
+      <div class="info-panel">
+        <div class="info-title">Game Info</div>
+        <div class="info-item">
+          <span>Tiles Remaining:</span>
+          <span id="tilesRemaining">100</span>
+        </div>
+        <div class="info-item">
+          <span>Your Turn:</span>
+          <span id="turnIndicator">✓</span>
+        </div>
+        <div class="info-item">
+          <span>Current Word Score:</span>
+          <span id="currentScore">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat panel for online mode -->
+    <div id="chatPanel" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 320px; background: var(--tile-bg); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 100;">
+      <div style="background: var(--accent); color: white; padding: 15px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold;">💬 Chat</span>
+        <button onclick="toggleChat()" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; padding: 0;">×</button>
+      </div>
+      <div id="chatMessages" style="height: 250px; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: rgba(244, 232, 208, 0.3);">
+        <!-- Messages appear here -->
+      </div>
+      <div style="padding: 10px; border-top: 2px solid var(--accent);">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="chatInput" placeholder="Type a message..." 
+                 style="flex: 1; padding: 10px; border: 2px solid var(--accent); border-radius: 8px; font-family: Georgia, serif;"
+                 onkeypress="if(event.key === 'Enter') sendChatMessage()">
+          <button onclick="sendChatMessage()" class="btn-primary" style="padding: 10px 20px;">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat toggle button (only visible in online mode) -->
+    <button id="chatToggle" onclick="toggleChat()" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: white; border: none; cursor: pointer; font-size: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 99;">
+      💬
+    </button>
+
+    <div class="rack-container">
+      <!-- Tile Bag Icon -->
+      <div id="tileBag" style="position: absolute; top: -60px; right: 20px; font-size: 3rem; opacity: 0.7; pointer-events: none;">
+        🎒
+      </div>
+      <div class="rack" id="rack"></div>
+      <div class="controls">
+        <button class="btn-primary" id="playBtn">Play Word</button>
+        <button class="btn-secondary" id="shuffleBtn">Shuffle Rack</button>
+        <button class="btn-secondary" id="recallBtn">Recall Tiles</button>
+        <button class="btn-secondary" id="passBtn">Pass Turn</button>
+        <button class="btn-secondary" id="hideTilesBtn" style="display: none;">👁️ Hide Tiles</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gameMode = null; // 'ai' or 'human' or 'online'
+    let aiDifficulty = 5; // 1-10 difficulty scale
+    let player1Name = 'Player 1';
+    let player2Name = 'Player 2';
+    let player1Code = null;
+    let player2Code = null;
+    let usePasscodes = false;
+    let game = null; // Global game instance
+    
+    // Online multiplayer variables
+    let peer = null;
+    let connection = null;
+    let isHost = false;
+    let myGameCode = null;
+    let onlinePlayerRole = null; // 'player' or 'ai' (which side we control)
+    let myOnlineName = 'Player';
+    let opponentName = 'Opponent';
+    let startingPlayer = null; // Will be randomized
+
+    // Sound Effects System
+    const SFX = {
+      enabled: true,
+      context: null,
+      
+      init() {
+        if (!this.context) {
+          this.context = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+      
+      // Play tile click sound
+      tileClick() {
+        if (!this.enabled) return;
+        this.init();
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.context.destination);
+        
+        osc.frequency.value = 800;
+        osc.type = 'sine';
+        
+        gain.gain.setValueAtTime(0.1, this.context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + 0.1);
+        
+        osc.start(this.context.currentTime);
+        osc.stop(this.context.currentTime + 0.1);
+      },
+      
+      // Play tile placement sound
+      tilePlaced() {
+        if (!this.enabled) return;
+        this.init();
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.context.destination);
+        
+        osc.frequency.value = 600;
+        osc.type = 'triangle';
+        
+        gain.gain.setValueAtTime(0.15, this.context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + 0.15);
+        
+        osc.start(this.context.currentTime);
+        osc.stop(this.context.currentTime + 0.15);
+      },
+      
+      // Play word validation success
+      wordSuccess() {
+        if (!this.enabled) return;
+        this.init();
+        
+        // Play chord of notes
+        const frequencies = [523.25, 659.25, 783.99]; // C, E, G
+        frequencies.forEach((freq, i) => {
+          const osc = this.context.createOscillator();
+          const gain = this.context.createGain();
+          
+          osc.connect(gain);
+          gain.connect(this.context.destination);
+          
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          
+          const startTime = this.context.currentTime + (i * 0.05);
+          gain.gain.setValueAtTime(0.1, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+          
+          osc.start(startTime);
+          osc.stop(startTime + 0.3);
+        });
+      },
+      
+      // Play word validation failure
+      wordFail() {
+        if (!this.enabled) return;
+        this.init();
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.context.destination);
+        
+        osc.frequency.value = 200;
+        osc.type = 'sawtooth';
+        
+        gain.gain.setValueAtTime(0.2, this.context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + 0.3);
+        
+        osc.start(this.context.currentTime);
+        osc.stop(this.context.currentTime + 0.3);
+      },
+      
+      // Play shuffle sound
+      shuffle() {
+        if (!this.enabled) return;
+        this.init();
+        
+        for (let i = 0; i < 5; i++) {
+          const osc = this.context.createOscillator();
+          const gain = this.context.createGain();
+          
+          osc.connect(gain);
+          gain.connect(this.context.destination);
+          
+          osc.frequency.value = 300 + Math.random() * 200;
+          osc.type = 'square';
+          
+          const startTime = this.context.currentTime + (i * 0.05);
+          gain.gain.setValueAtTime(0.05, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.08);
+          
+          osc.start(startTime);
+          osc.stop(startTime + 0.08);
+        }
+      },
+      
+      // Play turn change sound
+      turnChange() {
+        if (!this.enabled) return;
+        this.init();
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        
+        osc.connect(gain);
+        gain.connect(this.context.destination);
+        
+        osc.frequency.setValueAtTime(400, this.context.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, this.context.currentTime + 0.2);
+        osc.type = 'triangle';
+        
+        gain.gain.setValueAtTime(0.15, this.context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + 0.3);
+        
+        osc.start(this.context.currentTime);
+        osc.stop(this.context.currentTime + 0.3);
+      },
+      
+      // Play game over sound
+      gameOver() {
+        if (!this.enabled) return;
+        this.init();
+        
+        // Descending notes
+        const frequencies = [659.25, 587.33, 523.25, 440.00]; // E, D, C, A
+        frequencies.forEach((freq, i) => {
+          const osc = this.context.createOscillator();
+          const gain = this.context.createGain();
+          
+          osc.connect(gain);
+          gain.connect(this.context.destination);
+          
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          
+          const startTime = this.context.currentTime + (i * 0.15);
+          gain.gain.setValueAtTime(0.15, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+          
+          osc.start(startTime);
+          osc.stop(startTime + 0.4);
+        });
+      }
+    };
+
+    function showDifficulty() {
+      document.getElementById('modeSelection').style.display = 'none';
+      document.getElementById('difficultySelection').style.display = 'flex';
+      
+      // Setup slider event listener
+      const slider = document.getElementById('difficultySlider');
+      const label = document.getElementById('difficultyLabel');
+      const desc = document.getElementById('difficultyDescription');
+      
+      const updateDifficultyDisplay = () => {
+        const level = parseInt(slider.value);
+        label.textContent = `Level ${level}`;
+        
+        const descriptions = {
+          1: { title: '🐣 Beginner', desc: 'Completely random moves, no strategy at all' },
+          2: { title: '😊 Very Easy', desc: 'Plays weak moves, avoids good opportunities' },
+          3: { title: '🙂 Easy', desc: 'Makes simple plays, basic word knowledge' },
+          4: { title: '😐 Casual', desc: 'Average moves, some bonus awareness' },
+          5: { title: '😏 Balanced', desc: 'Decent strategy, good move selection' },
+          6: { title: '😤 Challenging', desc: 'Strong plays, seeks bonuses' },
+          7: { title: '🧠 Hard', desc: 'Advanced tactics + 1-move lookahead' },
+          8: { title: '💪 Very Hard', desc: 'Expert play + 2-move lookahead' },
+          9: { title: '🔥 Expert', desc: 'Excellent strategy + 3-move lookahead' },
+          10: { title: '🏆 Master', desc: 'Perfect moves + 4-move lookahead simulation' }
+        };
+        
+        const info = descriptions[level];
+        desc.innerHTML = `<div style="font-weight: bold; margin-bottom: 5px;">${info.title}</div>
+                         <div style="font-size: 0.9rem; opacity: 0.8;">${info.desc}</div>`;
+      };
+      
+      slider.addEventListener('input', updateDifficultyDisplay);
+      updateDifficultyDisplay(); // Initial display
+    }
+    
+    function startGameWithSlider() {
+      const difficulty = parseInt(document.getElementById('difficultySlider').value);
+      startGame('ai', difficulty);
+    }
+
+    function showDeviceSelection() {
+      document.getElementById('modeSelection').style.display = 'none';
+      document.getElementById('deviceSelection').style.display = 'flex';
+    }
+
+    function showPlayerNames() {
+      document.getElementById('deviceSelection').style.display = 'none';
+      document.getElementById('playerNames').style.display = 'flex';
+    }
+
+    function showMultiplayerSetup() {
+      document.getElementById('deviceSelection').style.display = 'none';
+      document.getElementById('multiplayerSetup').style.display = 'flex';
+    }
+
+    function showJoinGame() {
+      document.getElementById('multiplayerSetup').style.display = 'none';
+      document.getElementById('joinGameScreen').style.display = 'flex';
+      document.getElementById('joinGameCode').value = '';
+      document.getElementById('joinStatus').textContent = '';
+    }
+
+    function backToModeSelection() {
+      document.getElementById('playerNames').style.display = 'none';
+      document.getElementById('deviceSelection').style.display = 'none';
+      document.getElementById('difficultySelection').style.display = 'none';
+      document.getElementById('multiplayerSetup').style.display = 'none';
+      document.getElementById('createGameScreen').style.display = 'none';
+      document.getElementById('joinGameScreen').style.display = 'none';
+      document.getElementById('modeSelection').style.display = 'flex';
+    }
+
+    function backToDeviceSelection() {
+      document.getElementById('playerNames').style.display = 'none';
+      document.getElementById('multiplayerSetup').style.display = 'none';
+      document.getElementById('modeSelection').style.display = 'none';
+      document.getElementById('deviceSelection').style.display = 'flex';
+    }
+
+    function backToMultiplayerSetup() {
+      document.getElementById('joinGameScreen').style.display = 'none';
+      document.getElementById('createGameScreen').style.display = 'none';
+      document.getElementById('deviceSelection').style.display = 'none';
+      document.getElementById('playerNames').style.display = 'none';
+      document.getElementById('modeSelection').style.display = 'none';
+      document.getElementById('multiplayerSetup').style.display = 'flex';
+    }
+
+    function cancelOnlineGame() {
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+      if (connection) {
+        connection.close();
+        connection = null;
+      }
+      backToMultiplayerSetup();
+    }
+
+    // Helper function to capitalize names properly
+    function capitalizeName(name) {
+      return name
+        .trim()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    function createOnlineGame() {
+      const nameInput = document.getElementById('onlinePlayerName').value.trim();
+      if (!nameInput) {
+        alert('Please enter your name');
+        return;
+      }
+      
+      myOnlineName = capitalizeName(nameInput);
+      
+      document.getElementById('multiplayerSetup').style.display = 'none';
+      document.getElementById('createGameScreen').style.display = 'flex';
+      
+      isHost = true;
+      
+      // Randomize starting player (50/50 chance)
+      startingPlayer = Math.random() < 0.5 ? 'player' : 'ai';
+      
+      // Host will be one side based on random
+      if (startingPlayer === 'player') {
+        onlinePlayerRole = 'player'; // Host goes first
+      } else {
+        onlinePlayerRole = 'ai'; // Joiner goes first
+      }
+      
+      // Generate random 6-digit code
+      myGameCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Initialize PeerJS
+      peer = new Peer(myGameCode);
+      
+      peer.on('open', (id) => {
+        document.getElementById('connectionStatus').innerHTML = '<div style="font-size: 1.1rem; color: #4CAF50;">✓ Connected! Ready to receive opponent.</div>';
+        document.getElementById('gameCodeDisplay').style.display = 'block';
+        document.getElementById('gameCode').textContent = myGameCode;
+      });
+      
+      peer.on('connection', (conn) => {
+        connection = conn;
+        setupConnection();
+        
+        connection.on('open', () => {
+          // Send game setup to joiner (who starts and names)
+          connection.send({
+            type: 'setup',
+            hostName: myOnlineName,
+            startingPlayer: startingPlayer
+          });
+        });
+      });
+      
+      peer.on('error', (err) => {
+        document.getElementById('connectionStatus').innerHTML = '<div style="color: #ff6b6b;">❌ Connection error. Please try again.</div>';
+        console.error('Peer error:', err);
+      });
+    }
+
+    function joinOnlineGame() {
+      const code = document.getElementById('joinGameCode').value.trim().toUpperCase();
+      const nameInput = document.getElementById('onlinePlayerName').value.trim();
+      
+      if (!nameInput) {
+        alert('Please enter your name');
+        return;
+      }
+      
+      if (code.length !== 6) {
+        document.getElementById('joinStatus').textContent = 'Please enter a 6-character code';
+        return;
+      }
+      
+      myOnlineName = capitalizeName(nameInput);
+      
+      document.getElementById('joinStatus').textContent = 'Connecting...';
+      
+      isHost = false;
+      
+      // Initialize PeerJS
+      peer = new Peer();
+      
+      peer.on('open', (id) => {
+        // Connect to host
+        connection = peer.connect(code);
+        
+        connection.on('open', () => {
+          document.getElementById('joinStatus').innerHTML = '<div style="color: #4CAF50;">✓ Connected!</div>';
+          setupConnection();
+          
+          // Send our name to host
+          connection.send({
+            type: 'joinerName',
+            name: myOnlineName
+          });
+        });
+        
+        connection.on('error', (err) => {
+          document.getElementById('joinStatus').textContent = '❌ Failed to connect. Check the code.';
+          console.error('Connection error:', err);
+        });
+      });
+      
+      peer.on('error', (err) => {
+        document.getElementById('joinStatus').textContent = '❌ Connection error. Please try again.';
+        console.error('Peer error:', err);
+      });
+    }
+
+    function setupConnection() {
+      connection.on('data', (data) => {
+        handleRemoteMove(data);
+      });
+      
+      connection.on('close', () => {
+        alert('Opponent disconnected!');
+        // Could add reconnection logic here
+      });
+    }
+
+    function handleRemoteMove(data) {
+      if (!game) {
+        // Handle setup messages before game starts
+        if (data.type === 'setup' && !isHost) {
+          // Joiner receives setup from host
+          opponentName = data.hostName;
+          startingPlayer = data.startingPlayer;
+          
+          // Determine joiner's role based on who starts
+          if (startingPlayer === 'player') {
+            onlinePlayerRole = 'ai'; // Host starts, joiner is second
+          } else {
+            onlinePlayerRole = 'player'; // Joiner starts, joiner is first
+          }
+          
+          // Start the game
+          if (onlinePlayerRole === 'player') {
+            player1Name = myOnlineName;
+            player2Name = opponentName;
+          } else {
+            player1Name = opponentName;
+            player2Name = myOnlineName;
+          }
+          
+          startGame('online', null);
+          return;
+        }
+        
+        if (data.type === 'joinerName' && isHost) {
+          // Host receives joiner's name
+          opponentName = data.name;
+          
+          // Start the game
+          if (onlinePlayerRole === 'player') {
+            player1Name = myOnlineName;
+            player2Name = opponentName;
+          } else {
+            player1Name = opponentName;
+            player2Name = myOnlineName;
+          }
+          
+          startGame('online', null);
+          return;
+        }
+        
+        return;
+      }
+      
+      if (data.type === 'move') {
+        // Opponent played a word
+        game.applyRemoteMove(data);
+      } else if (data.type === 'pass') {
+        // Opponent passed
+        game.applyRemotePass();
+      } else if (data.type === 'chat') {
+        // Received chat message
+        addChatMessage(data.sender, data.message, false);
+      } else if (data.type === 'tilePlacement') {
+        // Opponent placed a tile (preview)
+        game.addOpponentPreviewTile(data);
+      } else if (data.type === 'tileRecall') {
+        // Opponent recalled tiles
+        game.clearOpponentPreviewTiles(data.positions);
+      }
+    }
+
+    function sendMove(moveData) {
+      if (connection && connection.open) {
+        connection.send(moveData);
+      }
+    }
+
+    // Chat functions
+    let chatOpen = false;
+
+    function toggleChat() {
+      chatOpen = !chatOpen;
+      const chatPanel = document.getElementById('chatPanel');
+      const chatToggle = document.getElementById('chatToggle');
+      
+      if (chatOpen) {
+        chatPanel.style.display = 'block';
+        chatToggle.style.display = 'none';
+        
+        // Scroll to bottom
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Focus input
+        document.getElementById('chatInput').focus();
+      } else {
+        chatPanel.style.display = 'none';
+        chatToggle.style.display = 'block';
+      }
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      if (connection && connection.open) {
+        connection.send({
+          type: 'chat',
+          message: message,
+          sender: myOnlineName
+        });
+        
+        // Add to our own chat
+        addChatMessage(myOnlineName, message, true);
+        
+        input.value = '';
+      }
+    }
+
+    function addChatMessage(sender, message, isMe) {
+      const chatMessages = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      
+      messageDiv.style.cssText = `
+        padding: 10px;
+        border-radius: 8px;
+        max-width: 80%;
+        word-wrap: break-word;
+        ${isMe ? 'background: var(--accent); color: white; margin-left: auto; text-align: right;' : 'background: rgba(139, 90, 43, 0.15);'}
+      `;
+      
+      if (!isMe) {
+        messageDiv.innerHTML = `
+          <div style="font-weight: bold; font-size: 0.85rem; margin-bottom: 4px; color: var(--accent);">${sender}</div>
+          <div>${message}</div>
+        `;
+      } else {
+        messageDiv.innerHTML = `<div>${message}</div>`;
+      }
+      
+      chatMessages.appendChild(messageDiv);
+      
+      // Scroll to bottom
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      // Show notification if chat is closed
+      if (!chatOpen && !isMe) {
+        const chatToggle = document.getElementById('chatToggle');
+        chatToggle.textContent = '💬 !';
+        chatToggle.style.animation = 'pulse 1s ease-in-out 3';
+        
+        setTimeout(() => {
+          chatToggle.textContent = '💬';
+          chatToggle.style.animation = '';
+        }, 3000);
+      }
+    }
+
+    function startGameWithNames() {
+      const p1 = document.getElementById('player1Name').value.trim();
+      const p2 = document.getElementById('player2Name').value.trim();
+      
+      player1Name = p1 ? capitalizeName(p1) : 'Player 1';
+      player2Name = p2 ? capitalizeName(p2) : 'Player 2';
+      
+      startGame('human', null);
+    }
+
+    function startGame(mode, difficulty) {
+      gameMode = mode;
+      if (difficulty) {
+        aiDifficulty = difficulty;
+      }
+      
+      document.getElementById('modeSelection').style.display = 'none';
+      document.getElementById('playerNames').style.display = 'none';
+      document.getElementById('difficultySelection').style.display = 'none';
+      document.getElementById('deviceSelection').style.display = 'none';
+      document.getElementById('multiplayerSetup').style.display = 'none';
+      document.getElementById('createGameScreen').style.display = 'none';
+      document.getElementById('joinGameScreen').style.display = 'none';
+      document.getElementById('gameBoard').style.display = 'flex';
+      
+      // Show chat toggle for online mode
+      if (mode === 'online') {
+        document.getElementById('chatToggle').style.display = 'block';
+      }
+      
+      if (mode === 'human') {
+        document.getElementById('player1Label').textContent = player1Name;
+        document.getElementById('player2Label').textContent = player2Name;
+      } else if (mode === 'online') {
+        document.getElementById('player1Label').textContent = player1Name;
+        document.getElementById('player2Label').textContent = player2Name;
+      } else {
+        document.getElementById('player1Label').textContent = 'You';
+        document.getElementById('player2Label').textContent = 'AI';
+      }
+      
+      // Initialize game and store globally
+      game = new ScrabbleGame(mode, aiDifficulty);
+    }
+
+    // Letter distribution and points
+    const LETTER_DIST = {
+      'A': {count: 9, points: 1}, 'B': {count: 2, points: 3}, 'C': {count: 2, points: 3},
+      'D': {count: 4, points: 2}, 'E': {count: 12, points: 1}, 'F': {count: 2, points: 4},
+      'G': {count: 3, points: 2}, 'H': {count: 2, points: 4}, 'I': {count: 9, points: 1},
+      'J': {count: 1, points: 8}, 'K': {count: 1, points: 5}, 'L': {count: 4, points: 1},
+      'M': {count: 2, points: 3}, 'N': {count: 6, points: 1}, 'O': {count: 8, points: 1},
+      'P': {count: 2, points: 3}, 'Q': {count: 1, points: 10}, 'R': {count: 6, points: 1},
+      'S': {count: 4, points: 1}, 'T': {count: 6, points: 1}, 'U': {count: 4, points: 1},
+      'V': {count: 2, points: 4}, 'W': {count: 2, points: 4}, 'X': {count: 1, points: 8},
+      'Y': {count: 2, points: 4}, 'Z': {count: 1, points: 10}, '_': {count: 2, points: 0}
+    };
+
+    // Premium squares
+    const PREMIUM_SQUARES = {
+      tws: [[0,0], [0,7], [0,14], [7,0], [7,14], [14,0], [14,7], [14,14]],
+      dws: [[1,1], [2,2], [3,3], [4,4], [1,13], [2,12], [3,11], [4,10], 
+             [13,1], [12,2], [11,3], [10,4], [13,13], [12,12], [11,11], [10,10]],
+      tls: [[1,5], [1,9], [5,1], [5,5], [5,9], [5,13], [9,1], [9,5], [9,9], 
+             [9,13], [13,5], [13,9]],
+      dls: [[0,3], [0,11], [2,6], [2,8], [3,0], [3,7], [3,14], [6,2], [6,6], 
+             [6,8], [6,12], [7,3], [7,11], [8,2], [8,6], [8,8], [8,12], [11,0], 
+             [11,7], [11,14], [12,6], [12,8], [14,3], [14,11]]
+    };
+
+    // Word validation cache
+    const wordCache = new Map();
+    
+    // Basic common words for offline validation
+    // Dictionary will be loaded from GitHub on first run
+    let offlineWords = new Set();
+    let dictionaryLoaded = false;
+    
+    async function loadDictionary() {
+      const statusEl = document.getElementById('dict-status');
+      
+      // Check localStorage cache first
+      try {
+        const cached = localStorage.getItem('sowpods_dict');
+        const cacheTime = localStorage.getItem('sowpods_time');
+        const age = Date.now() - (parseInt(cacheTime) || 0);
+        
+        if (cached && age < 7 * 24 * 60 * 60 * 1000) { // 7 days cache
+          console.log('Loading cached dictionary...');
+          offlineWords = new Set(JSON.parse(cached));
+          dictionaryLoaded = true;
+          if (statusEl) statusEl.style.display = 'none';
+          console.log(`✅ Loaded ${offlineWords.size} words from cache`);
+          return;
+        }
+      } catch (e) {
+        console.warn('Cache load failed:', e);
+      }
+      
+      // Multiple fallback URLs for SOWPODS dictionary
+      const dictionaryUrls = [
+        'https://raw.githubusercontent.com/jesstess/Scrabble/master/scrabble/sowpods.txt',
+        'https://raw.githubusercontent.com/redbo/scrabble/master/dictionary.txt',
+        'https://cdn.jsdelivr.net/gh/jesstess/Scrabble@master/scrabble/sowpods.txt'
+      ];
+      
+      // Try each URL until one works
+      for (const url of dictionaryUrls) {
+        try {
+          console.log(`Fetching dictionary from ${url}...`);
+          
+          const response = await fetch(url, {
+            mode: 'cors',
+            cache: 'default'
+          });
+          
+          if (!response.ok) {
+            console.warn(`Failed to fetch from ${url}: HTTP ${response.status}`);
+            continue; // Try next URL
+          }
+          
+          const text = await response.text();
+          const words = text.split('\n')
+            .map(w => w.trim().toUpperCase())
+            .filter(w => w.length > 0 && /^[A-Z]+$/.test(w));
+          
+          if (words.length < 1000) {
+            console.warn(`Dictionary too small (${words.length} words), trying next source...`);
+            continue;
+          }
+          
+          offlineWords = new Set(words);
+          dictionaryLoaded = true;
+          
+          // Cache for next time
+          try {
+            localStorage.setItem('sowpods_dict', JSON.stringify(words));
+            localStorage.setItem('sowpods_time', Date.now());
+          } catch (e) {
+            console.warn('Cache save failed:', e);
+          }
+          
+          if (statusEl) statusEl.style.display = 'none';
+          console.log(`✅ Loaded ${words.length} words from ${url}`);
+          return; // Success! Exit function
+          
+        } catch (error) {
+          console.error(`Failed to load from ${url}:`, error);
+          // Continue to next URL
+        }
+      }
+      
+      // All URLs failed - use embedded basic dictionary
+      console.error('All dictionary sources failed, using embedded basic dictionary');
+      
+      // Basic embedded dictionary (most common words)
+      offlineWords = new Set([
+        'AA', 'AB', 'AD', 'AE', 'AG', 'AH', 'AI', 'AL', 'AM', 'AN', 'AR', 'AS', 'AT', 'AW', 'AX', 'AY',
+        'BA', 'BE', 'BI', 'BO', 'BY', 'DA', 'DE', 'DO', 'ED', 'EF', 'EH', 'EL', 'EM', 'EN', 'ER', 'ES', 'ET', 'EX',
+        'FA', 'FE', 'GO', 'HA', 'HE', 'HI', 'HM', 'HO', 'ID', 'IF', 'IN', 'IS', 'IT',
+        'JO', 'KA', 'KI', 'LA', 'LI', 'LO', 'MA', 'ME', 'MI', 'MM', 'MO', 'MU', 'MY',
+        'NA', 'NE', 'NO', 'NU', 'OD', 'OE', 'OF', 'OH', 'OI', 'OM', 'ON', 'OP', 'OR', 'OS', 'OW', 'OX', 'OY',
+        'PA', 'PE', 'PI', 'PO', 'QI', 'RE', 'SH', 'SI', 'SO', 'TA', 'TI', 'TO',
+        'UH', 'UM', 'UN', 'UP', 'US', 'UT', 'WE', 'WO', 'XI', 'XU', 'YA', 'YE', 'YO', 'YU', 'ZA',
+        'THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'DAY', 'GET', 'HAS', 'HIM', 'HIS', 'HOW', 'MAN', 'NEW', 'NOW', 'OLD', 'SEE', 'TWO', 'WAY', 'WHO', 'BOY', 'DID', 'ITS', 'LET', 'PUT', 'SAY', 'SHE', 'TOO', 'USE',
+        'CAT', 'DOG', 'RUN', 'SIT', 'EAT', 'BIG', 'RED', 'HOT', 'SUN', 'FUN', 'PLAY', 'WORD', 'GOOD', 'MAKE', 'HELP', 'LOOK', 'CALL', 'FIND', 'GIVE', 'TELL', 'WORK', 'SEEM', 'FEEL', 'HAND', 'TURN', 'SHOW', 'PART', 'EVEN', 'LAND', 'WELL', 'BACK', 'ONLY', 'COME', 'MADE', 'FIND', 'YEAR', 'WORK', 'OVER', 'VERY', 'ALSO', 'WELL', 'DOWN', 'HIGH', 'JUST', 'LIFE', 'LONG', 'MUCH', 'SAME', 'TAKE', 'WANT', 'KNOW', 'MOVE', 'LIKE', 'FACE', 'LIVE', 'AREA', 'CITY', 'BOOK', 'FORM', 'IDEA', 'LOVE', 'FOOD', 'GAME', 'HOME', 'WORD', 'CASE', 'TIME', 'NAME', 'LINE', 'SIDE', 'HEAD', 'ROAD', 'MILE', 'FIRE', 'TREE', 'BIRD', 'FISH',
+        'QUIZ', 'JAZZ', 'FIZZ', 'BUZZ'
+      ]);
+      
+      dictionaryLoaded = true;
+      
+      if (statusEl) {
+        statusEl.innerHTML = `
+          ⚠️ Could not load full dictionary (network issue)<br>
+          <small>Using ${offlineWords.size} basic words - <a href="#" onclick="location.reload()" style="color: inherit; text-decoration: underline;">Retry</a></small>
+        `;
+        statusEl.style.background = '#fff3cd';
+        statusEl.style.color = '#856404';
+        statusEl.style.padding = '12px';
+        statusEl.style.fontSize = '14px';
+      }
+      
+      console.log(`⚠️ Using embedded dictionary (${offlineWords.size} words)`);
+    }
+    
+    // Start loading immediately
+    loadDictionary();
+    
+    // ========================================
+    // VERSION CHECK SYSTEM
+    // ========================================
+    const CURRENT_VERSION = '1.0.0'; // Update this when releasing new version
+    const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/ThitiKhacharoen/Scrabble/main/version.txt';
+    
+    async function checkForUpdates() {
+      try {
+        // Check on every page load for latest version
+        const now = Date.now();
+        
+        // Fetch latest version
+        const response = await fetch(VERSION_CHECK_URL, {
+          cache: 'no-cache'
+        });
+        
+        if (!response.ok) {
+          console.log('Version check failed (server issue)');
+          return;
+        }
+        
+        const latestVersion = (await response.text()).trim();
+        
+        // Save check time
+        localStorage.setItem('last_version_check', now.toString());
+        
+        // Compare versions
+        if (latestVersion !== CURRENT_VERSION && isNewerVersion(latestVersion, CURRENT_VERSION)) {
+          showUpdateNotification(latestVersion);
+        }
+        
+      } catch (error) {
+        console.log('Version check failed:', error.message);
+        // Silently fail - don't bother user
+      }
+    }
+    
+    function isNewerVersion(latest, current) {
+      const latestParts = latest.split('.').map(Number);
+      const currentParts = current.split('.').map(Number);
+      
+      for (let i = 0; i < 3; i++) {
+        if (latestParts[i] > currentParts[i]) return true;
+        if (latestParts[i] < currentParts[i]) return false;
+      }
+      return false;
+    }
+    
+    function showUpdateNotification(newVersion) {
+      const banner = document.createElement('div');
+      banner.id = 'update-banner';
+      banner.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 14px;
+        font-weight: 600;
+        animation: slideUp 0.3s ease-out;
+      `;
+      
+      banner.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">🎉</span>
+          <div>
+            <div style="font-size: 16px; margin-bottom: 4px;">New Version Available!</div>
+            <div style="font-size: 12px; opacity: 0.9;">v${newVersion} is ready</div>
+          </div>
+        </div>
+        <button onclick="location.reload()" style="
+          background: white;
+          color: #27ae60;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-weight: 700;
+          cursor: pointer;
+          font-size: 14px;
+          transition: transform 0.2s;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          Update Now
+        </button>
+        <button onclick="this.parentElement.remove()" style="
+          background: transparent;
+          color: white;
+          border: 1px solid rgba(255,255,255,0.5);
+          padding: 10px 16px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          font-size: 14px;
+        ">
+          Later
+        </button>
+      `;
+      
+      // Add animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideUp {
+          from {
+            transform: translateX(-50%) translateY(100px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      document.body.appendChild(banner);
+      
+      // Auto-hide after 30 seconds
+      setTimeout(() => {
+        if (banner.parentElement) {
+          banner.style.animation = 'slideUp 0.3s ease-out reverse';
+          setTimeout(() => banner.remove(), 300);
+        }
+      }, 30000);
+    }
+    
+    // Check for updates on load (after 3 seconds to not interfere with game loading)
+    setTimeout(checkForUpdates, 3000);
+    // ========================================
+    // END VERSION CHECK SYSTEM
+    // ========================================
+
+    async function validateWord(word) {
+      word = word.toUpperCase();
+      
+      // Handle blank tiles (_) - try all possible letters
+      if (word.includes('_')) {
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        
+        // Try replacing each blank with each letter
+        for (const letter of alphabet) {
+          const testWord = word.replace('_', letter);
+          
+          // If still has blanks, recursively validate
+          if (testWord.includes('_')) {
+            const isValid = await validateWord(testWord);
+            if (isValid) {
+              wordCache.set(word, true);
+              return true;
+            }
+          } else {
+            // Check if this combination is valid
+            if (offlineWords.has(testWord)) {
+              wordCache.set(word, true);
+              return true;
+            }
+          }
+        }
+        
+        // None of the combinations were valid
+        wordCache.set(word, false);
+        return false;
+      }
+      
+      if (wordCache.has(word)) {
+        return wordCache.get(word);
+      }
+
+      // Try offline validation first
+      if (offlineWords.has(word)) {
+        wordCache.set(word, true);
+        return true;
+      }
+
+      // Try online API
+      try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`, {
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        const isValid = response.ok;
+        wordCache.set(word, isValid);
+        return isValid;
+      } catch (error) {
+        // If offline or API fails, reject unknown words
+        console.log('Dictionary API unavailable, rejecting unknown word:', word);
+        wordCache.set(word, false);
+        return false;
+      }
+    }
+
+    class ScrabbleGame {
+      constructor(mode, difficulty) {
+        this.gameMode = mode; // 'ai' or 'human'
+        this.aiDifficulty = difficulty || 5; // 1-10 scale (1=easiest, 10=hardest)
+        this.board = Array(15).fill(null).map(() => Array(15).fill(null));
+        this.tileBag = this.initializeTileBag();
+        this.playerRack = [];
+        this.aiRack = [];
+        this.playerScore = 0;
+        this.aiScore = 0;
+        
+        // Set starting turn based on mode
+        if (this.gameMode === 'online' && startingPlayer) {
+          this.currentTurn = startingPlayer; // Use randomized starting player
+        } else {
+          this.currentTurn = 'player'; // Default for other modes
+        }
+        
+        this.placedTiles = [];
+        this.selectedTile = null;
+        this.selectedTileIndex = null;
+        this.direction = 'horizontal';
+        this.firstMove = true;
+        this.consecutivePasses = 0;
+        this.pendingTransition = false; // Track if waiting for player to confirm turn
+        this.opponentPreviewTiles = []; // Track opponent's tile placements in real-time
+        // CHEATING PENALTY DISABLED
+        // this.tilesRevealed = false; // Track if tiles have been revealed this turn
+        // this.cheatingPenalty = 0; // Track cheating penalty points
+        
+        this.initializeGame();
+      }
+
+      showTurnTransition() {
+        if (this.gameMode !== 'human') return; // Only for 2-player mode
+        
+        this.pendingTransition = true;
+        // this.tilesRevealed = false; // CHEATING PENALTY DISABLED
+        const currentPlayerName = this.currentTurn === 'player' ? player1Name : player2Name;
+        
+        // Animate the transition screen entrance
+        const transitionEl = document.getElementById('turnTransition');
+        transitionEl.style.display = 'flex';
+        transitionEl.style.animation = 'none';
+        void transitionEl.offsetWidth; // Force reflow
+        transitionEl.style.animation = 'fadeIn 0.3s ease-in-out';
+        
+        document.getElementById('transitionPlayerName').textContent = currentPlayerName + "'s Turn";
+        document.getElementById('transitionNextPlayer').textContent = currentPlayerName;
+        
+        // Hide the rack with blur
+        const rack = document.getElementById('rack');
+        rack.style.filter = 'blur(20px)';
+        rack.style.pointerEvents = 'none';
+        rack.style.visibility = 'visible'; // Keep visible but blurred
+        
+        // CHEATING PENALTY DISABLED
+        // this.setupCheatingDetector();
+      }
+
+      /* CHEATING PENALTY SYSTEM - DISABLED BUT KEPT FOR REFERENCE
+      setupCheatingDetector() {
+        const rack = document.getElementById('rack');
+        
+        // Remove old detector if exists
+        if (this.cheatingDetectorHandler) {
+          rack.removeEventListener('click', this.cheatingDetectorHandler);
+        }
+        
+        // Add new detector
+        this.cheatingDetectorHandler = (e) => {
+          // If tiles are blurred and not revealed yet, they're trying to cheat
+          if (rack.style.filter === 'blur(20px)' && !this.tilesRevealed) {
+            this.applyCheatingPenalty();
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        };
+        
+        rack.addEventListener('click', this.cheatingDetectorHandler);
+      }
+
+      applyCheatingPenalty() {
+        const PENALTY = 10;
+        
+        // Apply penalty to current player
+        if (this.currentTurn === 'player') {
+          this.playerScore = Math.max(0, this.playerScore - PENALTY);
+        } else {
+          this.aiScore = Math.max(0, this.aiScore - PENALTY);
+        }
+        
+        this.cheatingPenalty += PENALTY;
+        
+        // Show warning
+        const warning = document.getElementById('cheatingWarning');
+        warning.style.display = 'block';
+        
+        // Flash animation
+        warning.style.animation = 'none';
+        void warning.offsetWidth;
+        warning.style.animation = 'pulse 0.5s ease-in-out 3';
+        
+        // Update scores
+        this.updateScores();
+        
+        // Show message
+        const currentPlayerName = this.currentTurn === 'player' ? player1Name : player2Name;
+        this.showMessage(`🚨 ${currentPlayerName} caught cheating! -${PENALTY} points!`);
+        
+        // Auto-hide warning after 5 seconds
+        setTimeout(() => {
+          warning.style.display = 'none';
+        }, 5000);
+      }
+      */
+
+      confirmTurnTransition() {
+        // CHEATING PENALTY DISABLED
+        // this.tilesRevealed = true;
+        
+        // Fade out transition
+        this.pendingTransition = false;
+        const transitionEl = document.getElementById('turnTransition');
+        transitionEl.style.animation = 'fadeOut 0.3s ease-in-out';
+        
+        setTimeout(() => {
+          transitionEl.style.display = 'none';
+          
+          // Show rack unblurred
+          const rack = document.getElementById('rack');
+          rack.style.filter = 'none';
+          rack.style.pointerEvents = 'auto';
+          
+          this.renderRack();
+        }, 300);
+      }
+
+      initializeTileBag() {
+        const bag = [];
+        for (const [letter, {count, points}] of Object.entries(LETTER_DIST)) {
+          for (let i = 0; i < count; i++) {
+            bag.push({letter, points});
+          }
+        }
+        return this.shuffle(bag);
+      }
+
+      shuffle(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      }
+
+      drawTiles(count) {
+        const tiles = [];
+        for (let i = 0; i < count && this.tileBag.length > 0; i++) {
+          const tile = this.tileBag.pop();
+          tile._isNew = true; // Mark as new for animation
+          tiles.push(tile);
+        }
+        return tiles;
+      }
+
+      initializeGame() {
+        this.playerRack = this.drawTiles(7);
+        this.aiRack = this.drawTiles(7);
+        this.renderBoard();
+        this.renderRack();
+        this.updateScores();
+        this.updateInfo();
+        this.setupEventListeners();
+        
+        // Show starting message based on mode
+        if (this.gameMode === 'online') {
+          if (this.currentTurn === onlinePlayerRole) {
+            this.showMessage(`You go first! First word must cover the center ★`);
+          } else {
+            const opponentDisplayName = this.currentTurn === 'player' ? player1Name : player2Name;
+            this.showMessage(`${opponentDisplayName} goes first. Wait for their turn...`);
+          }
+        } else {
+          const playerName = this.gameMode === 'human' ? player1Name : 'You';
+          const message = playerName === 'You' 
+            ? 'Your turn. First word must cover the center ★'
+            : `${playerName}'s turn. First word must cover the center ★`;
+          this.showMessage(message);
+        }
+      }
+
+      renderBoard() {
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        
+        for (let row = 0; row < 15; row++) {
+          for (let col = 0; col < 15; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+
+            // Add premium square styling
+            if (row === 7 && col === 7) {
+              cell.className += ' star';
+              cell.textContent = '★';
+            } else if (PREMIUM_SQUARES.tws.some(([r, c]) => r === row && c === col)) {
+              cell.className += ' tws';
+              cell.textContent = '3W';
+            } else if (PREMIUM_SQUARES.dws.some(([r, c]) => r === row && c === col)) {
+              cell.className += ' dws';
+              cell.textContent = '2W';
+            } else if (PREMIUM_SQUARES.tls.some(([r, c]) => r === row && c === col)) {
+              cell.className += ' tls';
+              cell.textContent = '3L';
+            } else if (PREMIUM_SQUARES.dls.some(([r, c]) => r === row && c === col)) {
+              cell.className += ' dls';
+              cell.textContent = '2L';
+            }
+
+            // Add existing tile
+            if (this.board[row][col]) {
+              cell.textContent = ''; // Clear premium square text
+              const tile = document.createElement('div');
+              tile.className = 'tile';
+              tile.innerHTML = `${this.board[row][col].letter}<span class="points">${this.board[row][col].points}</span>`;
+              cell.appendChild(tile);
+              cell.className += ' occupied';
+            }
+
+            // Add preview for placed tiles
+            const placedHere = this.placedTiles.find(t => t.row === row && t.col === col);
+            if (placedHere) {
+              cell.textContent = ''; // Clear premium square text
+              const tile = document.createElement('div');
+              tile.className = 'tile tile-placed';
+              tile.innerHTML = `${placedHere.tile.letter}<span class="points">${placedHere.tile.points}</span>`;
+              cell.appendChild(tile);
+              cell.className += ' preview';
+            }
+
+            // Add opponent preview tiles (online mode only)
+            if (this.gameMode === 'online') {
+              const opponentTileHere = this.opponentPreviewTiles.find(t => t.row === row && t.col === col);
+              if (opponentTileHere && !this.board[row][col] && !placedHere) {
+                cell.textContent = ''; // Clear premium square text
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.style.opacity = '0.6';
+                tile.innerHTML = `${opponentTileHere.letter}<span class="points">${opponentTileHere.points}</span>`;
+                cell.appendChild(tile);
+                cell.className += ' opponent-preview';
+              }
+            }
+
+            cell.addEventListener('click', () => this.handleCellClick(row, col));
+            boardEl.appendChild(cell);
+          }
+        }
+      }
+
+      renderRack() {
+        const rackEl = document.getElementById('rack');
+        rackEl.innerHTML = '';
+        
+        // In 2-player mode, show the current player's rack
+        const currentRack = this.currentTurn === 'player' ? this.playerRack : this.aiRack;
+        
+        currentRack.forEach((tile, index) => {
+          if (tile && !tile.placed) {
+            const tileEl = document.createElement('div');
+            tileEl.className = 'rack-tile';
+            
+            // Check if this is a new tile (just drawn)
+            if (tile._isNew) {
+              tileEl.classList.add('tile-entering');
+              // Clear the flag after animation
+              setTimeout(() => {
+                tile._isNew = false;
+                // Add flip animation after entering
+                tileEl.classList.remove('tile-entering');
+                tileEl.classList.add('tile-flip');
+              }, 600);
+            }
+            
+            tileEl.innerHTML = `${tile.letter}<span class="points">${tile.points}</span>`;
+            // Store the actual tile object reference, not just index
+            tileEl._tileRef = tile;
+            tileEl._tileIndex = index;
+            tileEl.addEventListener('click', () => this.selectTile(tile, index));
+            rackEl.appendChild(tileEl);
+          }
+        });
+      }
+
+      selectTile(tile, index) {
+        this.selectedTile = tile;
+        this.selectedTileIndex = index;
+        
+        // Play tile click sound
+        SFX.tileClick();
+        
+        // Update UI to show selection
+        document.querySelectorAll('.rack-tile').forEach((el) => {
+          if (el._tileRef === tile) {
+            el.classList.add('selected');
+          } else {
+            el.classList.remove('selected');
+          }
+        });
+      }
+
+      handleCellClick(row, col) {
+        // Prevent placing tiles when not your turn in online mode
+        if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
+          return;
+        }
+        
+        if (this.board[row][col]) return;
+        if (this.selectedTile === null) return;
+
+        const tile = this.selectedTile;
+        if (!tile || tile.placed) return;
+
+        // Place tile
+        tile.placed = true;
+        tile.row = row;
+        tile.col = col;
+        this.placedTiles.push({tile, row, col, index: this.selectedTileIndex});
+        
+        // Play tile placement sound
+        SFX.tilePlaced();
+        
+        // Send tile placement to opponent in real-time (online mode)
+        if (this.gameMode === 'online') {
+          sendMove({
+            type: 'tilePlacement',
+            letter: tile.letter,
+            points: tile.points,
+            row: row,
+            col: col
+          });
+        }
+        
+        this.selectedTile = null;
+        this.selectedTileIndex = null;
+        this.renderBoard();
+        this.renderRack();
+        this.calculateCurrentScore();
+      }
+
+      recallTiles() {
+        // Send recall notification to opponent in online mode
+        if (this.gameMode === 'online' && this.placedTiles.length > 0) {
+          sendMove({
+            type: 'tileRecall',
+            positions: this.placedTiles.map(pt => ({ row: pt.row, col: pt.col }))
+          });
+        }
+        
+        this.placedTiles.forEach(({tile, index}) => {
+          tile.placed = false;
+          delete tile.row;
+          delete tile.col;
+        });
+        this.placedTiles = [];
+        this.renderBoard();
+        this.renderRack();
+        this.calculateCurrentScore();
+      }
+
+      calculateCurrentScore() {
+        if (this.placedTiles.length === 0) {
+          document.getElementById('currentScore').textContent = '0';
+          return 0;
+        }
+
+        const tiles = this.placedTiles.map(t => ({...t}));
+        tiles.sort((a, b) => {
+          if (this.direction === 'horizontal') {
+            return a.col - b.col;
+          }
+          return a.row - b.row;
+        });
+
+        let score = 0;
+        let wordMultiplier = 1;
+
+        tiles.forEach(({tile, row, col}) => {
+          let letterScore = tile.points;
+          
+          // Apply letter multipliers
+          if (PREMIUM_SQUARES.dls.some(([r, c]) => r === row && c === col)) {
+            letterScore *= 2;
+          } else if (PREMIUM_SQUARES.tls.some(([r, c]) => r === row && c === col)) {
+            letterScore *= 3;
+          }
+
+          score += letterScore;
+
+          // Apply word multipliers
+          if (PREMIUM_SQUARES.dws.some(([r, c]) => r === row && c === col)) {
+            wordMultiplier *= 2;
+          } else if (PREMIUM_SQUARES.tws.some(([r, c]) => r === row && c === col)) {
+            wordMultiplier *= 3;
+          }
+        });
+
+        score *= wordMultiplier;
+
+        // Bonus for using all 7 tiles
+        if (this.placedTiles.length === 7) {
+          score += 50;
+        }
+
+        document.getElementById('currentScore').textContent = score;
+        return score;
+      }
+
+      async playWord() {
+        // Check if it's our turn in online mode
+        if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
+          this.showMessage("Wait for opponent's turn");
+          return;
+        }
+        
+        if (this.placedTiles.length === 0) {
+          this.showMessage('Please place at least one tile');
+          return;
+        }
+
+        // Validate placement
+        if (!this.validatePlacement()) {
+          this.showMessage('Invalid placement. Tiles must form a continuous line and connect to existing words.');
+          return;
+        }
+
+        if (this.firstMove) {
+          const centerCovered = this.placedTiles.some(({row, col}) => row === 7 && col === 7);
+          if (!centerCovered) {
+            this.showMessage('First word must cover the center ★');
+            return;
+          }
+        }
+
+        // Get the word formed
+        const word = this.getFormedWord();
+        
+        // Validate word with dictionary
+        this.showMessage('Validating word...');
+        const isValid = await validateWord(word);
+        
+        if (!isValid) {
+          SFX.wordFail();
+          this.showMessage(`"${word}" is not a valid English word. Try again.`);
+          return;
+        }
+
+        // Calculate score
+        const score = this.calculateCurrentScore();
+        
+        // Play success sound
+        SFX.wordSuccess();
+        
+        // Commit tiles to board
+        this.placedTiles.forEach(({tile, row, col}) => {
+          this.board[row][col] = tile;
+        });
+
+        // Update score for current player
+        if (this.currentTurn === 'player') {
+          this.playerScore += score;
+        } else {
+          this.aiScore += score;
+        }
+        
+        this.firstMove = false;
+        const tilesUsedData = this.placedTiles.map(pt => ({
+          letter: pt.tile.letter,
+          points: pt.tile.points,
+          row: pt.row,
+          col: pt.col
+        }));
+        this.placedTiles = [];
+        this.consecutivePasses = 0;
+
+        // Refill rack for current player
+        const currentRack = this.currentTurn === 'player' ? this.playerRack : this.aiRack;
+        const tilesUsed = currentRack.filter(t => t && t.placed).length;
+        const remainingTiles = currentRack.filter(t => !t || !t.placed);
+        const newTiles = this.drawTiles(tilesUsed);
+        
+        if (this.currentTurn === 'player') {
+          this.playerRack = [...remainingTiles, ...newTiles];
+        } else {
+          this.aiRack = [...remainingTiles, ...newTiles];
+        }
+
+        // Send move to opponent in online mode
+        if (this.gameMode === 'online') {
+          sendMove({
+            type: 'move',
+            tiles: tilesUsedData,
+            score: score,
+            word: word,
+            newTilesCount: tilesUsed
+          });
+        }
+
+        this.updateScores();
+        this.renderBoard();
+        this.renderRack();
+        this.updateInfo();
+
+        // Switch turn
+        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        this.updateTurnIndicator();
+        
+        // Play turn change sound
+        SFX.turnChange();
+        
+        if (this.gameMode === 'ai' && this.currentTurn === 'ai') {
+          this.showMessage('AI is thinking...');
+          setTimeout(() => this.aiTurn(), 1500);
+        } else if (this.gameMode === 'human') {
+          // 2-player local mode
+          const playerName = this.currentTurn === 'player' ? player1Name : player2Name;
+          const message = playerName === 'You' ? 'Your turn' : `${playerName}'s turn`;
+          this.showMessage(message);
+          this.showTurnTransition();
+        } else if (this.gameMode === 'online') {
+          // Online multiplayer mode
+          if (this.currentTurn === onlinePlayerRole) {
+            this.showMessage('Your turn!');
+            this.renderRack();
+          } else {
+            this.showMessage("Opponent's turn...");
+          }
+        } else {
+          // Fallback
+          this.renderRack();
+        }
+      }
+
+      getFormedWord() {
+        const tiles = [...this.placedTiles];
+        tiles.sort((a, b) => {
+          if (this.direction === 'horizontal') {
+            return a.col - b.col;
+          }
+          return a.row - b.row;
+        });
+
+        // Get the complete word including existing tiles
+        if (this.direction === 'horizontal') {
+          const row = tiles[0].row;
+          let startCol = tiles[0].col;
+          let endCol = tiles[tiles.length - 1].col;
+          
+          // Extend to beginning
+          while (startCol > 0 && this.board[row][startCol - 1]) {
+            startCol--;
+          }
+          
+          // Extend to end
+          while (endCol < 14 && this.board[row][endCol + 1]) {
+            endCol++;
+          }
+          
+          let word = '';
+          for (let col = startCol; col <= endCol; col++) {
+            if (this.board[row][col]) {
+              word += this.board[row][col].letter;
+            } else {
+              const placed = this.placedTiles.find(t => t.row === row && t.col === col);
+              if (placed) {
+                word += placed.tile.letter;
+              }
+            }
+          }
+          return word;
+        } else {
+          const col = tiles[0].col;
+          let startRow = tiles[0].row;
+          let endRow = tiles[tiles.length - 1].row;
+          
+          while (startRow > 0 && this.board[startRow - 1][col]) {
+            startRow--;
+          }
+          
+          while (endRow < 14 && this.board[endRow + 1][col]) {
+            endRow++;
+          }
+          
+          let word = '';
+          for (let row = startRow; row <= endRow; row++) {
+            if (this.board[row][col]) {
+              word += this.board[row][col].letter;
+            } else {
+              const placed = this.placedTiles.find(t => t.row === row && t.col === col);
+              if (placed) {
+                word += placed.tile.letter;
+              }
+            }
+          }
+          return word;
+        }
+      }
+
+      validatePlacement() {
+        if (this.placedTiles.length === 0) return false;
+        
+        // Auto-detect direction from placed tiles
+        if (this.placedTiles.length === 1) {
+          // Single tile - check if it extends an existing word
+          const {row, col} = this.placedTiles[0];
+          const hasHorizontalNeighbor = (col > 0 && this.board[row][col-1]) || (col < 14 && this.board[row][col+1]);
+          const hasVerticalNeighbor = (row > 0 && this.board[row-1][col]) || (row < 14 && this.board[row+1][col]);
+          
+          if (hasHorizontalNeighbor && !hasVerticalNeighbor) {
+            this.direction = 'horizontal';
+          } else if (hasVerticalNeighbor && !hasHorizontalNeighbor) {
+            this.direction = 'vertical';
+          } else if (this.firstMove) {
+            // First move, single tile - default to horizontal
+            this.direction = 'horizontal';
+          }
+          // If both or neither, keep current direction
+        } else {
+          // Multiple tiles - detect from their arrangement
+          const rows = this.placedTiles.map(t => t.row);
+          const cols = this.placedTiles.map(t => t.col);
+          const sameRow = rows.every(r => r === rows[0]);
+          const sameCol = cols.every(c => c === cols[0]);
+          
+          if (sameRow) {
+            this.direction = 'horizontal';
+          } else if (sameCol) {
+            this.direction = 'vertical';
+          } else {
+            // Tiles not in a line
+            return false;
+          }
+        }
+        
+        const tiles = [...this.placedTiles];
+        tiles.sort((a, b) => {
+          if (this.direction === 'horizontal') {
+            return a.col - b.col;
+          }
+          return a.row - b.row;
+        });
+
+        // Check if tiles are in a line
+        if (this.direction === 'horizontal') {
+          const row = tiles[0].row;
+          if (!tiles.every(t => t.row === row)) return false;
+          
+          // Check continuity
+          for (let i = 0; i < tiles.length - 1; i++) {
+            const gap = tiles[i + 1].col - tiles[i].col;
+            if (gap > 1) {
+              // Check if gap is filled with existing tiles
+              for (let col = tiles[i].col + 1; col < tiles[i + 1].col; col++) {
+                if (!this.board[row][col]) return false;
+              }
+            }
+          }
+        } else {
+          const col = tiles[0].col;
+          if (!tiles.every(t => t.col === col)) return false;
+          
+          for (let i = 0; i < tiles.length - 1; i++) {
+            const gap = tiles[i + 1].row - tiles[i].row;
+            if (gap > 1) {
+              for (let row = tiles[i].row + 1; row < tiles[i + 1].row; row++) {
+                if (!this.board[row][col]) return false;
+              }
+            }
+          }
+        }
+
+        // If not first move, check connection to existing tiles
+        if (!this.firstMove) {
+          let connected = false;
+          for (const {row, col} of tiles) {
+            const adjacent = [
+              [row - 1, col], [row + 1, col], [row, col - 1], [row, col + 1]
+            ];
+            for (const [r, c] of adjacent) {
+              if (r >= 0 && r < 15 && c >= 0 && c < 15 && this.board[r][c]) {
+                connected = true;
+                break;
+              }
+            }
+            if (connected) break;
+          }
+          if (!connected) return false;
+        }
+
+        return true;
+      }
+
+      async aiTurn() {
+        // Add thinking animation to AI score value
+        const aiCard = document.getElementById('aiScoreCard');
+        const aiScoreValue = aiCard.querySelector('.score-value');
+        if (aiScoreValue) {
+          aiScoreValue.style.animation = 'letterPulse 0.8s ease-in-out infinite';
+        }
+        
+        // Try to find and play a valid word
+        const aiMove = await this.findBestAiMove();
+        
+        // Remove thinking animation
+        if (aiScoreValue) {
+          aiScoreValue.style.animation = '';
+        }
+        
+        if (aiMove) {
+          const {tiles, startRow, startCol, direction, score, word} = aiMove;
+          
+          // Place tiles
+          for (let i = 0; i < tiles.length; i++) {
+            const row = direction === 'horizontal' ? startRow : startRow + i;
+            const col = direction === 'horizontal' ? startCol + i : startCol;
+            this.board[row][col] = tiles[i];
+          }
+
+          this.aiScore += score;
+          this.aiRack = this.aiRack.filter(t => !tiles.includes(t));
+          this.aiRack.push(...this.drawTiles(tiles.length));
+          
+          this.showMessage(`AI played "${word}" for ${score} points!`);
+          this.firstMove = false;
+          this.consecutivePasses = 0;
+        } else {
+          this.showMessage('AI passed their turn');
+          this.consecutivePasses++;
+        }
+
+        this.renderBoard();
+        this.updateScores();
+        this.updateInfo();
+        
+        if (this.consecutivePasses >= 4) {
+          this.endGame();
+          return;
+        }
+
+        this.currentTurn = 'player';
+        this.updateTurnIndicator();
+      }
+
+      async findBestAiMove() {
+        let allPossibleMoves = [];
+        
+        if (this.firstMove) {
+          // First move - try to place word horizontally at center
+          allPossibleMoves = await this.findFirstMove();
+        } else {
+          // Find all possible moves on the board
+          allPossibleMoves = await this.findAllPossibleMoves();
+        }
+
+        // If still no moves, try a desperation strategy with 2-letter words
+        if (allPossibleMoves.length === 0 && !this.firstMove) {
+          allPossibleMoves = await this.findDesperationMoves();
+        }
+
+        if (allPossibleMoves.length === 0) {
+          return null; // No valid moves - will pass
+        }
+
+        // Sort by score
+        allPossibleMoves.sort((a, b) => b.score - a.score);
+
+        // Select move based on difficulty (1-10 scale)
+        let selectedMove;
+        const difficultyLevel = this.aiDifficulty;
+        
+        // Levels 1-6: Move selection based on score ranking (no lookahead)
+        if (difficultyLevel === 1) {
+          // Level 1: Completely random
+          selectedMove = allPossibleMoves[Math.floor(Math.random() * allPossibleMoves.length)];
+          
+        } else if (difficultyLevel === 2) {
+          // Level 2: Bottom 80%
+          const moves = allPossibleMoves.slice(Math.floor(allPossibleMoves.length * 0.2));
+          selectedMove = moves[Math.floor(Math.random() * moves.length)];
+          
+        } else if (difficultyLevel === 3) {
+          // Level 3: Bottom 60%
+          const moves = allPossibleMoves.slice(Math.floor(allPossibleMoves.length * 0.4));
+          selectedMove = moves[Math.floor(Math.random() * moves.length)];
+          
+        } else if (difficultyLevel === 4) {
+          // Level 4: Middle 60%
+          const start = Math.floor(allPossibleMoves.length * 0.2);
+          const end = Math.floor(allPossibleMoves.length * 0.8);
+          const moves = allPossibleMoves.slice(start, end);
+          selectedMove = moves[Math.floor(Math.random() * moves.length)];
+          
+        } else if (difficultyLevel === 5) {
+          // Level 5: Top 60%
+          const moves = allPossibleMoves.slice(0, Math.ceil(allPossibleMoves.length * 0.6));
+          selectedMove = moves[Math.floor(Math.random() * moves.length)];
+          
+        } else if (difficultyLevel === 6) {
+          // Level 6: Top 40%
+          const moves = allPossibleMoves.slice(0, Math.ceil(allPossibleMoves.length * 0.4));
+          selectedMove = moves[Math.floor(Math.random() * moves.length)];
+          
+        } else {
+          // Levels 7-10: Use lookahead simulation
+          const lookaheadDepth = difficultyLevel - 6; // 7->1, 8->2, 9->3, 10->4
+          const topMoves = allPossibleMoves.slice(0, Math.min(5, allPossibleMoves.length)); // Consider top 5 moves
+          
+          let bestMoveWithLookahead = topMoves[0];
+          let bestScore = -Infinity;
+          
+          for (const move of topMoves) {
+            // Simulate this move and evaluate opponent's best response
+            const evaluationScore = await this.evaluateMoveWithLookahead(move, lookaheadDepth);
+            
+            if (evaluationScore > bestScore) {
+              bestScore = evaluationScore;
+              bestMoveWithLookahead = move;
+            }
+          }
+          
+          selectedMove = bestMoveWithLookahead;
+        }
+
+        return selectedMove;
+      }
+
+      async evaluateMoveWithLookahead(move, depth) {
+        if (depth === 0) {
+          return move.score; // Base case: just return the immediate score
+        }
+        
+        // Make a temporary copy of the board state
+        const originalBoard = this.board.map(row => row.slice());
+        const originalAiRack = [...this.aiRack];
+        const originalPlayerRack = [...this.playerRack];
+        
+        // Simulate playing this move
+        const {tiles, startRow, startCol, direction} = move;
+        for (let i = 0; i < tiles.length; i++) {
+          const row = direction === 'horizontal' ? startRow : startRow + i;
+          const col = direction === 'horizontal' ? startCol + i : startCol;
+          this.board[row][col] = tiles[i];
+        }
+        
+        // Remove used tiles from AI rack (simulate)
+        this.aiRack = this.aiRack.filter(t => !tiles.includes(t));
+        
+        // Simulate opponent's best counter-move
+        let opponentBestScore = 0;
+        
+        // Quick simulation - just check top 3 opponent moves
+        const opponentMoves = await this.findAllPossibleMoves();
+        if (opponentMoves.length > 0) {
+          opponentMoves.sort((a, b) => b.score - a.score);
+          const topOpponentMove = opponentMoves[0];
+          opponentBestScore = topOpponentMove.score;
+          
+          // Recursive lookahead if depth > 1
+          if (depth > 1) {
+            // Simulate opponent's move
+            const {tiles: oppTiles, startRow: oppRow, startCol: oppCol, direction: oppDir} = topOpponentMove;
+            for (let i = 0; i < oppTiles.length; i++) {
+              const r = oppDir === 'horizontal' ? oppRow : oppRow + i;
+              const c = oppDir === 'horizontal' ? oppCol + i : oppCol;
+              this.board[r][c] = oppTiles[i];
+            }
+            
+            // Recursively evaluate AI's next move
+            const aiNextMoves = await this.findAllPossibleMoves();
+            if (aiNextMoves.length > 0) {
+              aiNextMoves.sort((a, b) => b.score - a.score);
+              const futureScore = await this.evaluateMoveWithLookahead(aiNextMoves[0], depth - 1);
+              opponentBestScore = futureScore; // Use the recursive evaluation
+            }
+          }
+        }
+        
+        // Restore original board state
+        this.board = originalBoard;
+        this.aiRack = originalAiRack;
+        this.playerRack = originalPlayerRack;
+        
+        // Evaluation: My score - Opponent's best response
+        // Higher difficulty means we care more about denying opponent points
+        return move.score - (opponentBestScore * 0.5);
+      }
+
+      async findDesperationMoves() {
+        const moves = [];
+        
+        // Try all 2-letter combinations everywhere on board
+        const twoLetterPerms = this.getPermutations(this.aiRack, 2);
+        
+        for (let row = 0; row < 15; row++) {
+          for (let col = 0; col < 14; col++) {
+            // Check if this position or adjacent has a tile
+            const hasNearbyTile = 
+              this.board[row][col] ||
+              this.board[row][col+1] ||
+              (row > 0 && (this.board[row-1][col] || this.board[row-1][col+1])) ||
+              (row < 14 && (this.board[row+1][col] || this.board[row+1][col+1])) ||
+              (col > 0 && this.board[row][col-1]) ||
+              (col < 13 && this.board[row][col+2]);
+            
+            if (!hasNearbyTile && !this.firstMove) continue;
+            
+            // Try horizontal 2-letter words
+            if (!this.board[row][col] && !this.board[row][col+1]) {
+              for (const tiles of twoLetterPerms) {
+                const word = tiles.map(t => t.letter).join('');
+                if (offlineWords.has(word)) {
+                  // Validate all cross-words
+                  if (this.validateAllFormedWords(tiles, row, col, 'horizontal')) {
+                    const score = this.calculateAiScore(tiles, row, col, 'horizontal');
+                    moves.push({
+                      tiles: tiles.slice(),
+                      startRow: row,
+                      startCol: col,
+                      direction: 'horizontal',
+                      score: score,
+                      word: word
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Try vertical 2-letter words
+        for (let row = 0; row < 14; row++) {
+          for (let col = 0; col < 15; col++) {
+            const hasNearbyTile = 
+              this.board[row][col] ||
+              this.board[row+1][col] ||
+              (row > 0 && this.board[row-1][col]) ||
+              (row < 13 && this.board[row+2][col]) ||
+              (col > 0 && (this.board[row][col-1] || this.board[row+1][col-1])) ||
+              (col < 14 && (this.board[row][col+1] || this.board[row+1][col+1]));
+            
+            if (!hasNearbyTile && !this.firstMove) continue;
+            
+            if (!this.board[row][col] && !this.board[row+1][col]) {
+              for (const tiles of twoLetterPerms) {
+                const word = tiles.map(t => t.letter).join('');
+                if (offlineWords.has(word)) {
+                  // Validate all cross-words
+                  if (this.validateAllFormedWords(tiles, row, col, 'vertical')) {
+                    const score = this.calculateAiScore(tiles, row, col, 'vertical');
+                    moves.push({
+                      tiles: tiles.slice(),
+                      startRow: row,
+                      startCol: col,
+                      direction: 'vertical',
+                      score: score,
+                      word: word
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        return moves;
+      }
+
+      async findFirstMove() {
+        const moves = [];
+        
+        // Difficulty controls search depth - how many permutations to check
+        let maxLength = 7;
+        let maxPermsToCheck = Infinity;
+        
+        if (this.aiDifficulty === 'easy') {
+          maxLength = 4; // Try shorter words only
+          maxPermsToCheck = 50; // Check fewer permutations
+        } else if (this.aiDifficulty === 'medium') {
+          maxLength = 6;
+          maxPermsToCheck = 200;
+        }
+        // Hard: tries all lengths up to 7, all permutations
+        
+        // Try different word lengths from rack
+        for (let len = 2; len <= Math.min(maxLength, this.aiRack.length); len++) {
+          // Get all permutations of tiles
+          const permutations = this.getPermutations(this.aiRack, len);
+          const permsToCheck = Math.min(maxPermsToCheck, permutations.length);
+          
+          for (let i = 0; i < permsToCheck; i++) {
+            const tiles = permutations[i];
+            const word = tiles.map(t => t.letter).join('');
+            
+            // Check if it's a valid word
+            if (offlineWords.has(word)) {
+              const startCol = 7 - Math.floor(len / 2);
+              if (startCol >= 0 && startCol + len <= 15) {
+                // First move has no cross-words to check, so it's always valid
+                const score = this.calculateAiScore(tiles, 7, startCol, 'horizontal');
+                moves.push({
+                  tiles: tiles.slice(), // Clone array
+                  startRow: 7,
+                  startCol: startCol,
+                  direction: 'horizontal',
+                  score: score,
+                  word: word
+                });
+              }
+            }
+          }
+        }
+        
+        return moves;
+      }
+
+      async findAllPossibleMoves() {
+        const moves = [];
+        
+        // Difficulty controls search thoroughness
+        let searchEveryNthCell = 1;
+        let maxWordLength = 7;
+        let stopEarlyThreshold = Infinity;
+        
+        if (this.aiDifficulty === 'easy') {
+          searchEveryNthCell = 2; // Skip some cells (less thorough)
+          maxWordLength = 4; // Try shorter words
+          stopEarlyThreshold = 30; // Stop after finding 30 moves
+        } else if (this.aiDifficulty === 'medium') {
+          searchEveryNthCell = 1;
+          maxWordLength = 6;
+          stopEarlyThreshold = 100; // Stop after finding 100 moves
+        }
+        // Hard: search every cell, all word lengths, find all moves
+        
+        // For each empty cell adjacent to an occupied cell
+        for (let row = 0; row < 15; row += searchEveryNthCell) {
+          for (let col = 0; col < 15; col += searchEveryNthCell) {
+            if (!this.board[row][col]) {
+              // Check if adjacent to an occupied cell
+              const hasAdjacentTile = 
+                (row > 0 && this.board[row-1][col]) ||
+                (row < 14 && this.board[row+1][col]) ||
+                (col > 0 && this.board[row][col-1]) ||
+                (col < 14 && this.board[row][col+1]);
+              
+              if (hasAdjacentTile) {
+                // Try both horizontal and vertical
+                const hMoves = await this.findMovesAt(row, col, 'horizontal', maxWordLength);
+                const vMoves = await this.findMovesAt(row, col, 'vertical', maxWordLength);
+                moves.push(...hMoves, ...vMoves);
+                
+                // Stop early based on difficulty
+                if (moves.length >= stopEarlyThreshold) {
+                  return moves;
+                }
+              }
+            }
+          }
+        }
+        
+        return moves;
+      }
+
+      async findMovesAt(row, col, direction, maxWordLength = 7) {
+        const moves = [];
+        
+        // Limit permutations based on difficulty
+        let maxPermsPerLength = Infinity;
+        if (this.aiDifficulty === 'easy') {
+          maxPermsPerLength = 30; // Check fewer permutations
+        } else if (this.aiDifficulty === 'medium') {
+          maxPermsPerLength = 100;
+        }
+        // Hard: check all permutations
+        
+        // Try different word lengths
+        for (let len = 2; len <= Math.min(maxWordLength, this.aiRack.length); len++) {
+          // Get all permutations
+          const permutations = this.getPermutations(this.aiRack, len);
+          const permsToCheck = Math.min(maxPermsPerLength, permutations.length);
+          
+          for (let i = 0; i < permsToCheck; i++) {
+            const tiles = permutations[i];
+            // Try different starting positions for this word
+            for (let offset = 0; offset < len; offset++) {
+              const startRow = direction === 'vertical' ? row - offset : row;
+              const startCol = direction === 'horizontal' ? col - offset : col;
+              
+              if (startRow < 0 || startCol < 0) continue;
+              
+              const endRow = direction === 'vertical' ? startRow + len - 1 : startRow;
+              const endCol = direction === 'horizontal' ? startCol + len - 1 : startCol;
+              
+              if (endRow >= 15 || endCol >= 15) continue;
+              
+              // Check if placement is valid (all cells empty or one matches existing)
+              let canPlace = true;
+              let touchesExisting = false;
+              
+              for (let i = 0; i < len; i++) {
+                const r = direction === 'vertical' ? startRow + i : startRow;
+                const c = direction === 'horizontal' ? startCol + i : startCol;
+                
+                if (this.board[r][c]) {
+                  canPlace = false;
+                  break;
+                }
+                
+                // Check if adjacent to existing tile
+                const adjacent = 
+                  (r > 0 && this.board[r-1][c]) ||
+                  (r < 14 && this.board[r+1][c]) ||
+                  (c > 0 && this.board[r][c-1]) ||
+                  (c < 14 && this.board[r][c+1]);
+                
+                if (adjacent) touchesExisting = true;
+              }
+              
+              if (canPlace && touchesExisting) {
+                const word = tiles.map(t => t.letter).join('');
+                
+                // Check if main word is valid
+                if (offlineWords.has(word)) {
+                  // CRITICAL: Check all cross-words formed
+                  const allWordsValid = this.validateAllFormedWords(tiles, startRow, startCol, direction);
+                  
+                  if (allWordsValid) {
+                    const score = this.calculateAiScore(tiles, startRow, startCol, direction);
+                    moves.push({
+                      tiles: tiles.slice(), // Clone array
+                      startRow: startRow,
+                      startCol: startCol,
+                      direction: direction,
+                      score: score,
+                      word: word
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        return moves;
+      }
+
+      validateAllFormedWords(tiles, startRow, startCol, direction) {
+        // Temporarily place tiles to check all formed words
+        const tempPlacements = [];
+        
+        for (let i = 0; i < tiles.length; i++) {
+          const r = direction === 'vertical' ? startRow + i : startRow;
+          const c = direction === 'horizontal' ? startCol + i : startCol;
+          this.board[r][c] = tiles[i];
+          tempPlacements.push({r, c});
+        }
+        
+        let allValid = true;
+        
+        // FIRST: Check the main word (including any tiles it connects to in-line)
+        let mainWord = '';
+        if (direction === 'horizontal') {
+          let startC = startCol;
+          let endC = startCol + tiles.length - 1;
+          
+          // Extend to beginning of existing word
+          while (startC > 0 && this.board[startRow][startC - 1]) {
+            startC--;
+          }
+          
+          // Extend to end of existing word
+          while (endC < 14 && this.board[startRow][endC + 1]) {
+            endC++;
+          }
+          
+          // Build complete word
+          for (let col = startC; col <= endC; col++) {
+            mainWord += this.board[startRow][col].letter;
+          }
+        } else {
+          let startR = startRow;
+          let endR = startRow + tiles.length - 1;
+          
+          // Extend to beginning of existing word
+          while (startR > 0 && this.board[startR - 1][startCol]) {
+            startR--;
+          }
+          
+          // Extend to end of existing word
+          while (endR < 14 && this.board[endR + 1][startCol]) {
+            endR++;
+          }
+          
+          // Build complete word
+          for (let row = startR; row <= endR; row++) {
+            mainWord += this.board[row][startCol].letter;
+          }
+        }
+        
+        // Validate main word (if longer than just the placed tiles, it's extending an existing word)
+        if (mainWord.length > tiles.length && !offlineWords.has(mainWord)) {
+          allValid = false;
+        }
+        
+        // SECOND: Check each placed tile for cross-words (perpendicular)
+        if (allValid) {
+          for (let i = 0; i < tiles.length; i++) {
+            const r = direction === 'vertical' ? startRow + i : startRow;
+            const c = direction === 'horizontal' ? startCol + i : startCol;
+            
+            // Check perpendicular direction
+            let crossWord = '';
+            if (direction === 'horizontal') {
+              // Check vertical cross-word
+              let startR = r;
+              let endR = r;
+              
+              // Find start of word
+              while (startR > 0 && this.board[startR - 1][c]) {
+                startR--;
+              }
+              
+              // Find end of word
+              while (endR < 14 && this.board[endR + 1][c]) {
+                endR++;
+              }
+              
+              // Build word
+              if (startR !== endR) { // There's a cross-word
+                for (let row = startR; row <= endR; row++) {
+                  crossWord += this.board[row][c].letter;
+                }
+              }
+            } else {
+              // Check horizontal cross-word
+              let startC = c;
+              let endC = c;
+              
+              // Find start of word
+              while (startC > 0 && this.board[r][startC - 1]) {
+                startC--;
+              }
+              
+              // Find end of word
+              while (endC < 14 && this.board[r][endC + 1]) {
+                endC++;
+              }
+              
+              // Build word
+              if (startC !== endC) { // There's a cross-word
+                for (let col = startC; col <= endC; col++) {
+                  crossWord += this.board[r][col].letter;
+                }
+              }
+            }
+            
+            // Validate cross-word if it exists and is more than 1 letter
+            if (crossWord.length > 1 && !offlineWords.has(crossWord)) {
+              allValid = false;
+              break;
+            }
+          }
+        }
+        
+        // Remove temporary placements
+        for (const {r, c} of tempPlacements) {
+          this.board[r][c] = null;
+        }
+        
+        return allValid;
+      }
+
+      getPermutations(tiles, length) {
+        if (length === 0) return [[]];
+        if (tiles.length === 0) return [];
+        if (length > tiles.length) return [];
+        
+        const result = [];
+        
+        for (let i = 0; i < tiles.length; i++) {
+          const current = tiles[i];
+          const remaining = [...tiles.slice(0, i), ...tiles.slice(i + 1)];
+          const perms = this.getPermutations(remaining, length - 1);
+          
+          for (const perm of perms) {
+            result.push([current, ...perm]);
+          }
+        }
+        
+        return result;
+      }
+
+      calculateAiScore(tiles, row, col, direction) {
+        let score = 0;
+        let wordMultiplier = 1;
+
+        tiles.forEach((tile, i) => {
+          const r = direction === 'vertical' ? row + i : row;
+          const c = direction === 'horizontal' ? col + i : col;
+          
+          let letterScore = tile.points;
+          
+          if (PREMIUM_SQUARES.dls.some(([pr, pc]) => pr === r && pc === c)) {
+            letterScore *= 2;
+          } else if (PREMIUM_SQUARES.tls.some(([pr, pc]) => pr === r && pc === c)) {
+            letterScore *= 3;
+          }
+
+          score += letterScore;
+
+          if (PREMIUM_SQUARES.dws.some(([pr, pc]) => pr === r && pc === c)) {
+            wordMultiplier *= 2;
+          } else if (PREMIUM_SQUARES.tws.some(([pr, pc]) => pr === r && pc === c)) {
+            wordMultiplier *= 3;
+          }
+        });
+
+        score *= wordMultiplier;
+
+        if (tiles.length === 7) {
+          score += 50;
+        }
+
+        return score;
+      }
+
+      passTurn() {
+        // Check if it's our turn in online mode
+        if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
+          this.showMessage("Wait for opponent's turn");
+          return;
+        }
+        
+        // Recall any placed tiles before passing
+        this.recallTiles();
+        
+        this.consecutivePasses++;
+        
+        // Send pass to opponent in online mode
+        if (this.gameMode === 'online') {
+          sendMove({ type: 'pass' });
+        }
+        
+        const playerName = this.currentTurn === 'player' ? 
+          (this.gameMode === 'human' ? player1Name : this.gameMode === 'online' ? 'You' : 'You') : 
+          (this.gameMode === 'human' ? player2Name : this.gameMode === 'online' ? 'You' : 'AI');
+        this.showMessage(`${playerName} passed their turn`);
+        
+        if (this.consecutivePasses >= 4) {
+          this.endGame();
+          return;
+        }
+
+        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        this.updateTurnIndicator();
+        
+        if (this.gameMode === 'ai' && this.currentTurn === 'ai') {
+          setTimeout(() => this.aiTurn(), 1500);
+        } else if (this.gameMode === 'human') {
+          const nextPlayer = this.currentTurn === 'player' ? player1Name : player2Name;
+          const message = nextPlayer === 'You' ? 'Your turn' : `${nextPlayer}'s turn`;
+          this.showMessage(message);
+          this.showTurnTransition();
+        } else if (this.gameMode === 'online') {
+          if (this.currentTurn === onlinePlayerRole) {
+            this.showMessage('Your turn!');
+            this.renderRack();
+          } else {
+            this.showMessage("Opponent's turn...");
+          }
+        }
+      }
+
+      endGame() {
+        // Play game over sound
+        SFX.gameOver();
+        
+        let winner;
+        let p1Name, p2Name;
+        
+        if (this.gameMode === 'human') {
+          p1Name = player1Name;
+          p2Name = player2Name;
+          winner = this.playerScore > this.aiScore ? `${p1Name} wins!` : 
+                  this.aiScore > this.playerScore ? `${p2Name} wins!` : 
+                  'It\'s a tie!';
+        } else {
+          p1Name = 'You';
+          p2Name = 'AI';
+          winner = this.playerScore > this.aiScore ? 'You win!' : 
+                  this.aiScore > this.playerScore ? 'AI wins!' : 
+                  'It\'s a tie!';
+        }
+        
+        this.showMessage(`Game Over! ${winner} Final scores - ${p1Name}: ${this.playerScore}, ${p2Name}: ${this.aiScore}`);
+        
+        // Show play again button
+        const playAgainBtn = document.createElement('button');
+        playAgainBtn.className = 'btn-primary';
+        playAgainBtn.textContent = 'Play Again';
+        playAgainBtn.style.marginTop = '20px';
+        playAgainBtn.onclick = () => location.reload();
+        
+        const messageEl = document.getElementById('message');
+        messageEl.appendChild(document.createElement('br'));
+        messageEl.appendChild(playAgainBtn);
+        
+        // Disable game controls
+        document.getElementById('playBtn').disabled = true;
+        document.getElementById('shuffleBtn').disabled = true;
+        document.getElementById('recallBtn').disabled = true;
+        document.getElementById('passBtn').disabled = true;
+      }
+
+      shuffleRack() {
+        SFX.shuffle();
+        this.playerRack = this.shuffle(this.playerRack);
+        this.renderRack();
+      }
+
+      updateScores() {
+        document.getElementById('playerScore').textContent = this.playerScore;
+        document.getElementById('aiScore').textContent = this.aiScore;
+      }
+
+      updateInfo() {
+        document.getElementById('tilesRemaining').textContent = this.tileBag.length;
+      }
+
+      updateTurnIndicator() {
+        document.getElementById('turnIndicator').textContent = this.currentTurn === 'player' ? '✓' : '✗';
+        
+        const playerCard = document.getElementById('playerScoreCard');
+        const aiCard = document.getElementById('aiScoreCard');
+        
+        // Remove all animation classes first
+        playerCard.classList.remove('active', 'inactive', 'turn-flip');
+        aiCard.classList.remove('active', 'inactive', 'turn-flip');
+        
+        // Force reflow to restart animation
+        void playerCard.offsetWidth;
+        void aiCard.offsetWidth;
+        
+        // Add classes with animation
+        if (this.currentTurn === 'player') {
+          playerCard.classList.add('active', 'turn-flip');
+          aiCard.classList.add('inactive');
+        } else {
+          aiCard.classList.add('active', 'turn-flip');
+          playerCard.classList.add('inactive');
+        }
+      }
+
+      showMessage(text) {
+        document.getElementById('message').textContent = text;
+      }
+
+      setupEventListeners() {
+        document.getElementById('playBtn').addEventListener('click', () => this.playWord());
+        document.getElementById('shuffleBtn').addEventListener('click', () => this.shuffleRack());
+        document.getElementById('recallBtn').addEventListener('click', () => this.recallTiles());
+        document.getElementById('passBtn').addEventListener('click', () => this.passTurn());
+      }
+
+      // Online multiplayer methods
+      applyRemoteMove(data) {
+        // Clear opponent preview tiles since they're now playing
+        this.opponentPreviewTiles = [];
+        
+        // Apply opponent's move to our board
+        data.tiles.forEach(({letter, points, row, col}) => {
+          this.board[row][col] = {letter, points};
+        });
+
+        // Update opponent's score
+        if (this.currentTurn === 'player') {
+          this.playerScore += data.score;
+        } else {
+          this.aiScore += data.score;
+        }
+
+        // Draw new tiles for opponent
+        const opponentRack = this.currentTurn === 'player' ? this.playerRack : this.aiRack;
+        const newTiles = this.drawTiles(data.newTilesCount);
+        
+        if (this.currentTurn === 'player') {
+          this.playerRack = newTiles;
+        } else {
+          this.aiRack = newTiles;
+        }
+
+        this.firstMove = false;
+        this.consecutivePasses = 0;
+        
+        this.showMessage(`Opponent played "${data.word}" for ${data.score} points!`);
+        
+        // Update UI
+        this.updateScores();
+        this.renderBoard();
+        
+        // Switch turn
+        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        this.updateTurnIndicator();
+        
+        if (this.currentTurn === onlinePlayerRole) {
+          this.showMessage('Your turn!');
+          this.renderRack();
+        } else {
+          this.showMessage("Opponent's turn...");
+        }
+      }
+
+      applyRemotePass() {
+        this.consecutivePasses++;
+        this.showMessage('Opponent passed their turn');
+        
+        if (this.consecutivePasses >= 4) {
+          this.endGame();
+          return;
+        }
+        
+        // Switch turn
+        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        this.updateTurnIndicator();
+        
+        if (this.currentTurn === onlinePlayerRole) {
+          this.showMessage('Your turn!');
+          this.renderRack();
+        }
+      }
+
+      // Handle opponent tile placement preview
+      addOpponentPreviewTile(data) {
+        this.opponentPreviewTiles.push({
+          letter: data.letter,
+          points: data.points,
+          row: data.row,
+          col: data.col
+        });
+        this.renderBoard();
+      }
+
+      // Handle opponent recalling tiles
+      clearOpponentPreviewTiles(positions) {
+        if (positions && positions.length > 0) {
+          // Remove specific positions
+          this.opponentPreviewTiles = this.opponentPreviewTiles.filter(tile => {
+            return !positions.some(pos => pos.row === tile.row && pos.col === tile.col);
+          });
+        } else {
+          // Clear all
+          this.opponentPreviewTiles = [];
+        }
+        this.renderBoard();
+      }
+    }
+  </script>
+  
+  <!-- Theme Switcher UI -->
+  <div class="theme-selector">
+    <button class="theme-toggle-btn" onclick="toggleThemeMenu()">
+      <span class="theme-icon">🎨</span>
+      <span class="theme-label">Themes</span>
+    </button>
+    <div class="theme-menu" id="theme-menu" style="display: none;">
+      <div class="theme-menu-header">Choose Theme</div>
+      <button class="theme-option active" onclick="switchTheme('light-luxury')">
+        <span class="theme-option-icon">✨</span>
+        <div class="theme-option-info">
+          <div class="theme-option-name">Light Luxury</div>
+          <div class="theme-option-desc">Clean white, gold accents, elegant</div>
+        </div>
+        <span class="theme-check">✓</span>
+      </button>
+      <button class="theme-option" onclick="switchTheme('dark-modern')">
+        <span class="theme-option-icon">🌙</span>
+        <div class="theme-option-info">
+          <div class="theme-option-name">Dark Modern</div>
+          <div class="theme-option-desc">Dark gradients, glowing tiles, futuristic</div>
+        </div>
+      </button>
+      <button class="theme-option" onclick="switchTheme('classic-wood')">
+        <span class="theme-option-icon">🎨</span>
+        <div class="theme-option-info">
+          <div class="theme-option-name">Classic Wood</div>
+          <div class="theme-option-desc">Wooden board, traditional aesthetic</div>
+        </div>
+      </button>
+      <button class="theme-option" onclick="switchTheme('neon-gaming')">
+        <span class="theme-option-icon">⚡</span>
+        <div class="theme-option-info">
+          <div class="theme-option-name">Neon Gaming</div>
+          <div class="theme-option-desc">Cyberpunk neon, vibrant colors</div>
+        </div>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Theme Switcher JavaScript -->
+  <script>
+    let currentTheme = localStorage.getItem('scrabble_theme') || 'light-luxury';
+    
+    // Apply saved theme on load
+    document.body.className = 'theme-' + currentTheme;
+    
+    function toggleThemeMenu() {
+      const menu = document.getElementById('theme-menu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    function switchTheme(themeId) {
+      // Update body class
+      document.body.className = 'theme-' + themeId;
+      
+      // Save preference
+      localStorage.setItem('scrabble_theme', themeId);
+      currentTheme = themeId;
+      
+      // Update UI
+      document.querySelectorAll('.theme-option').forEach(option => {
+        option.classList.remove('active');
+        const check = option.querySelector('.theme-check');
+        if (check) check.remove();
+      });
+      
+      const activeOption = event.target.closest('.theme-option');
+      activeOption.classList.add('active');
+      const checkmark = document.createElement('span');
+      checkmark.className = 'theme-check';
+      checkmark.textContent = '✓';
+      activeOption.appendChild(checkmark);
+      
+      // Close menu
+      toggleThemeMenu();
+      
+      // Show message
+      const messageEl = document.getElementById('message');
+      if (messageEl) {
+        const oldText = messageEl.textContent;
+        const themeName = activeOption.querySelector('.theme-option-name').textContent;
+        messageEl.textContent = `Theme: ${themeName}`;
+        setTimeout(() => {
+          if (messageEl.textContent.startsWith('Theme:')) {
+            messageEl.textContent = oldText;
+          }
+        }, 2000);
+      }
+    }
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const selector = document.querySelector('.theme-selector');
+      const menu = document.getElementById('theme-menu');
+      if (selector && !selector.contains(event.target) && menu.style.display === 'block') {
+        menu.style.display = 'none';
+      }
+    });
+  </script>
+  
+</body>
+</html>
