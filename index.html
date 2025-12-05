@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.6.1</title>
-  <!-- Version: 1.6.1 | Date: December 5, 2025 | Deployment ready for GitHub Pages -->
+  <title>Scrabble Game v1.6.2</title>
+  <!-- Version: 1.6.2 | Date: December 5, 2025 | Fix: Hardcoded GitHub Pages redirect URL -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2617,10 +2617,14 @@
       try {
         console.log('🔐 Starting Google sign in...');
         
+        // Hardcoded redirect URL for GitHub Pages
+        const redirectUrl = 'https://thitikhacharoen.github.io/Scrabble/';
+        console.log('📍 Redirect URL:', redirectUrl);
+        
         const { data, error} = await window.supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: redirectUrl,
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
