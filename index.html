@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Scrabble Game v1.7.0</title>
-  <!-- Version: 1.7.0 | Date: December 6, 2025 | MAJOR: Separate Admin Dashboard -->
+  <!-- Version: 1.7.0 | Date: December 6, 2025 | MAJOR: Admin Dashboard + Google Display Names -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -1392,7 +1392,7 @@
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Sign in with Google
+          Continue with Google
         </button>
         
         <div style="text-align: center; margin: 25px 0; padding-top: 20px; border-top: 1px solid #ddd;">
@@ -1751,7 +1751,7 @@
         ">
           ⚙️ Settings
         </button>
-        <button id="adminTabBtn" class="settings-tab" onclick="switchSettingsTab('admin')" style="
+        <button id="adminTabBtn" class="settings-tab" onclick="openAdminDashboard()" style="
           flex: 1;
           padding: 15px;
           background: transparent;
@@ -1763,7 +1763,7 @@
           color: #7f8c8d;
           display: none;
         ">
-          👮 Admin
+          👮 Admin Dashboard
         </button>
       </div>
       
@@ -2484,6 +2484,154 @@
     }
   </style>
 
+  <!-- ============================================ -->
+  <!-- ADMIN DASHBOARD (v1.7.0) -->
+  <!-- ============================================ -->
+  <div id="adminDashboard" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f5f7fa; z-index: 10000; overflow-y: auto;">
+    <!-- Admin Header -->
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="margin: 0; font-size: 28px; font-weight: 700;">👮 Admin Dashboard</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Manage users, bans, and warnings</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <div style="text-align: right;">
+          <div style="font-size: 14px; font-weight: 600;" id="adminHeaderUsername">Admin</div>
+          <div style="font-size: 12px; opacity: 0.8;" id="adminHeaderRole">Super Admin</div>
+        </div>
+        <button onclick="exitAdminDashboard()" style="padding: 10px 20px; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 8px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+          ← Back to Game
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div style="padding: 30px 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+      <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 15px;">
+        <div style="width: 50px; height: 50px; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 24px;">👥</div>
+        <div>
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">Total Users</div>
+          <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statTotalUsers">0</div>
+        </div>
+      </div>
+
+      <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 15px;">
+        <div style="width: 50px; height: 50px; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); display: flex; align-items: center; justify-content: center; font-size: 24px;">🎮</div>
+        <div>
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">Active Games</div>
+          <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statActiveGames">0</div>
+        </div>
+      </div>
+
+      <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 15px;">
+        <div style="width: 50px; height: 50px; border-radius: 10px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); display: flex; align-items: center; justify-content: center; font-size: 24px;">🚫</div>
+        <div>
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">Banned Users</div>
+          <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statBannedUsers">0</div>
+        </div>
+      </div>
+
+      <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 15px;">
+        <div style="width: 50px; height: 50px; border-radius: 10px; background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%); display: flex; align-items: center; justify-content: center; font-size: 24px;">⚠️</div>
+        <div>
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">Total Warnings</div>
+          <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statTotalWarnings">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div style="padding: 0 40px 40px 40px;">
+      <!-- Tabs -->
+      <div style="background: white; border-radius: 12px; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; display: flex; gap: 8px;">
+        <button onclick="switchAdminTab('users')" id="tabUsers" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+          👥 Users
+        </button>
+        <button onclick="switchAdminTab('bans')" id="tabBans" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+          🚫 Banned
+        </button>
+        <button onclick="switchAdminTab('warnings')" id="tabWarnings" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+          ⚠️ Warnings
+        </button>
+      </div>
+
+      <!-- Users Tab Content -->
+      <div id="adminTabUsers" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">User Management</h2>
+          <input type="text" id="userSearchInput" placeholder="Search users..." onkeyup="filterAdminUsers()" style="padding: 8px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; width: 300px;">
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="usersTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Display Name</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Role</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Join Date</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Last Active</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Games</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Win Rate</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Status</th>
+                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #475569;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr>
+                <td colspan="8" style="padding: 40px; text-align: center; color: #94a3b8;">Loading users...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bans Tab Content -->
+      <div id="adminTabBans" style="display: none; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #1e293b;">Banned Users</h2>
+        <div style="overflow-x: auto;">
+          <table id="bansTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">User</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Reason</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Banned By</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Banned At</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Expires</th>
+                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #475569;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bansTableBody">
+              <tr>
+                <td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">Loading bans...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Warnings Tab Content -->
+      <div id="adminTabWarnings" style="display: none; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #1e293b;">Warnings Log</h2>
+        <div style="overflow-x: auto;">
+          <table id="warningsTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">User</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Reason</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Warned By</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Date</th>
+              </tr>
+            </thead>
+            <tbody id="warningsTableBody">
+              <tr>
+                <td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">Loading warnings...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="game-container" id="playerNames" style="display: none;">
     <div style="text-align: center; padding: 40px;">
       <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Enter Player Names</div>
@@ -2646,6 +2794,286 @@
         alert('An error occurred during sign in');
       }
     }
+    
+    // ============================================
+    // ADMIN DASHBOARD FUNCTIONS (v1.7.0)
+    // ============================================
+    
+    function openAdminDashboard() {
+      // Check if user has admin permissions
+      if (!currentUser || !['moderator', 'admin', 'super_admin'].includes(currentUser.role)) {
+        alert('Access denied. Admin permissions required.');
+        return;
+      }
+      
+      // Hide game, show admin dashboard
+      window.location.hash = 'admin';
+      document.getElementById('adminDashboard').style.display = 'block';
+      toggleSettingsPanel(); // Close settings panel
+      
+      // Update header with user info
+      const displayName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+      document.getElementById('adminHeaderUsername').textContent = displayName;
+      document.getElementById('adminHeaderRole').textContent = currentUser.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      // Load admin data
+      loadAdminStats();
+      loadAdminUsers();
+    }
+    
+    function exitAdminDashboard() {
+      window.location.hash = '';
+      document.getElementById('adminDashboard').style.display = 'none';
+    }
+    
+    function switchAdminTab(tab) {
+      // Update tab buttons
+      const tabs = ['users', 'bans', 'warnings'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        const content = document.getElementById('adminTab' + t.charAt(0).toUpperCase() + t.slice(1));
+        
+        if (t === tab) {
+          btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+          btn.style.color = 'white';
+          content.style.display = 'block';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = '#64748b';
+          content.style.display = 'none';
+        }
+      });
+      
+      // Load data for selected tab
+      if (tab === 'users') loadAdminUsers();
+      else if (tab === 'bans') loadAdminBans();
+      else if (tab === 'warnings') loadAdminWarnings();
+    }
+    
+    async function loadAdminStats() {
+      try {
+        // Total users
+        const { count: totalUsers } = await window.supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true });
+        document.getElementById('statTotalUsers').textContent = totalUsers || 0;
+        
+        // Active games
+        const { count: activeGames } = await window.supabase
+          .from('games')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active');
+        document.getElementById('statActiveGames').textContent = activeGames || 0;
+        
+        // Banned users
+        const { count: bannedUsers } = await window.supabase
+          .from('bans')
+          .select('*', { count: 'exact', head: true })
+          .eq('active', true);
+        document.getElementById('statBannedUsers').textContent = bannedUsers || 0;
+        
+        // Total warnings
+        const { count: totalWarnings } = await window.supabase
+          .from('warnings')
+          .select('*', { count: 'exact', head: true });
+        document.getElementById('statTotalWarnings').textContent = totalWarnings || 0;
+        
+      } catch (error) {
+        console.error('Error loading admin stats:', error);
+      }
+    }
+    
+    async function loadAdminUsers() {
+      try {
+        const { data: users, error } = await window.supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '';
+        
+        if (!users || users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #94a3b8;">No users found</td></tr>';
+          return;
+        }
+        
+        users.forEach(user => {
+          const displayName = user.display_name || user.email.split('@')[0];
+          const joinDate = new Date(user.created_at).toLocaleDateString();
+          const lastActive = user.last_active ? new Date(user.last_active).toLocaleDateString() : 'Never';
+          const gamesPlayed = user.games_played || 0;
+          const winRate = gamesPlayed > 0 ? ((user.wins || 0) / gamesPlayed * 100).toFixed(1) + '%' : '0%';
+          const status = user.is_banned ? '🚫 Banned' : '✅ Active';
+          
+          const row = document.createElement('tr');
+          row.style.borderBottom = '1px solid #e2e8f0';
+          row.innerHTML = `
+            <td style="padding: 12px;">${displayName}</td>
+            <td style="padding: 12px;"><span style="padding: 4px 12px; background: #f1f5f9; border-radius: 12px; font-size: 12px; font-weight: 600;">${user.role}</span></td>
+            <td style="padding: 12px; color: #64748b;">${joinDate}</td>
+            <td style="padding: 12px; color: #64748b;">${lastActive}</td>
+            <td style="padding: 12px; color: #64748b;">${gamesPlayed}</td>
+            <td style="padding: 12px; color: #64748b;">${winRate}</td>
+            <td style="padding: 12px;">${status}</td>
+            <td style="padding: 12px; text-align: right;">
+              <button onclick="showUserActions('${user.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                Actions
+              </button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+      } catch (error) {
+        console.error('Error loading users:', error);
+        document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #ef4444;">Error loading users</td></tr>';
+      }
+    }
+    
+    async function loadAdminBans() {
+      try {
+        const { data: bans, error } = await window.supabase
+          .from('bans')
+          .select(`
+            *,
+            user:users!bans_user_id_fkey(display_name, email),
+            banned_by_user:users!bans_banned_by_fkey(display_name, email)
+          `)
+          .eq('active', true)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const tbody = document.getElementById('bansTableBody');
+        tbody.innerHTML = '';
+        
+        if (!bans || bans.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">No active bans</td></tr>';
+          return;
+        }
+        
+        bans.forEach(ban => {
+          const userName = ban.user?.display_name || ban.user?.email.split('@')[0] || 'Unknown';
+          const bannedBy = ban.banned_by_user?.display_name || ban.banned_by_user?.email.split('@')[0] || 'System';
+          const bannedAt = new Date(ban.created_at).toLocaleString();
+          const expires = ban.expires_at ? new Date(ban.expires_at).toLocaleString() : 'Permanent';
+          
+          const row = document.createElement('tr');
+          row.style.borderBottom = '1px solid #e2e8f0';
+          row.innerHTML = `
+            <td style="padding: 12px;">${userName}</td>
+            <td style="padding: 12px; color: #64748b;">${ban.reason || 'No reason provided'}</td>
+            <td style="padding: 12px; color: #64748b;">${bannedBy}</td>
+            <td style="padding: 12px; color: #64748b;">${bannedAt}</td>
+            <td style="padding: 12px; color: #64748b;">${expires}</td>
+            <td style="padding: 12px; text-align: right;">
+              <button onclick="unbanUser('${ban.user_id}')" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                Unban
+              </button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+      } catch (error) {
+        console.error('Error loading bans:', error);
+        document.getElementById('bansTableBody').innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #ef4444;">Error loading bans</td></tr>';
+      }
+    }
+    
+    async function loadAdminWarnings() {
+      try {
+        const { data: warnings, error } = await window.supabase
+          .from('warnings')
+          .select(`
+            *,
+            user:users!warnings_user_id_fkey(display_name, email),
+            warned_by_user:users!warnings_warned_by_fkey(display_name, email)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        
+        if (error) throw error;
+        
+        const tbody = document.getElementById('warningsTableBody');
+        tbody.innerHTML = '';
+        
+        if (!warnings || warnings.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">No warnings issued</td></tr>';
+          return;
+        }
+        
+        warnings.forEach(warning => {
+          const userName = warning.user?.display_name || warning.user?.email.split('@')[0] || 'Unknown';
+          const warnedBy = warning.warned_by_user?.display_name || warning.warned_by_user?.email.split('@')[0] || 'System';
+          const date = new Date(warning.created_at).toLocaleString();
+          
+          const row = document.createElement('tr');
+          row.style.borderBottom = '1px solid #e2e8f0';
+          row.innerHTML = `
+            <td style="padding: 12px;">${userName}</td>
+            <td style="padding: 12px; color: #64748b;">${warning.reason || 'No reason provided'}</td>
+            <td style="padding: 12px; color: #64748b;">${warnedBy}</td>
+            <td style="padding: 12px; color: #64748b;">${date}</td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+      } catch (error) {
+        console.error('Error loading warnings:', error);
+        document.getElementById('warningsTableBody').innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #ef4444;">Error loading warnings</td></tr>';
+      }
+    }
+    
+    function filterAdminUsers() {
+      const input = document.getElementById('userSearchInput').value.toLowerCase();
+      const table = document.getElementById('usersTable');
+      const rows = table.getElementsByTagName('tr');
+      
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent || row.innerText;
+        row.style.display = text.toLowerCase().indexOf(input) > -1 ? '' : 'none';
+      }
+    }
+    
+    function showUserActions(userId) {
+      // For now, just alert. We'll add a proper modal later if needed
+      alert('User actions for: ' + userId + '\n\nFeatures:\n- Warn user\n- Ban user\n- Change role\n\nComing soon!');
+    }
+    
+    async function unbanUser(userId) {
+      if (!confirm('Are you sure you want to unban this user?')) return;
+      
+      try {
+        const { error } = await window.supabase
+          .from('bans')
+          .update({ active: false })
+          .eq('user_id', userId)
+          .eq('active', true);
+        
+        if (error) throw error;
+        
+        alert('User unbanned successfully!');
+        loadAdminBans();
+        loadAdminStats();
+      } catch (error) {
+        console.error('Error unbanning user:', error);
+        alert('Failed to unban user: ' + error.message);
+      }
+    }
+    
+    // Check hash on page load
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash === '#admin') {
+        openAdminDashboard();
+      } else {
+        exitAdminDashboard();
+      }
+    });
     
     async function handleAuthChange(session) {
       currentUser = session.user;
@@ -3018,12 +3446,14 @@
           // User doesn't exist in database - create record (first-time Google OAuth user)
           console.log('🆕 Creating database record for new Google user...');
           
-          // Generate username from email or name
-          let username = 'Player' + Date.now();
+          // Get display name from Google metadata
+          let displayName = 'Player' + Date.now();
           if (currentUser.user_metadata?.full_name) {
-            username = currentUser.user_metadata.full_name.replace(/\s+/g, '');
+            displayName = currentUser.user_metadata.full_name;
+          } else if (currentUser.user_metadata?.name) {
+            displayName = currentUser.user_metadata.name;
           } else if (currentUser.email) {
-            username = currentUser.email.split('@')[0];
+            displayName = currentUser.email.split('@')[0];
           }
           
           // Create database record
@@ -3032,7 +3462,7 @@
             .insert({
               id: currentUser.id,
               email: currentUser.email,
-              username: username,
+              display_name: displayName,
               games_played: 0,
               wins: 0,
               losses: 0,
@@ -3051,8 +3481,8 @@
           console.log('✅ Database record created');
           
           // Use the newly created record
-          currentUser.username = newUser.username;
-          currentUser.role = newUser.role || 'player';
+          currentUser.display_name = newUser.display_name;
+          currentUser.role = newUser.role || 'user';
           currentUser.status = newUser.status || 'active';
           currentUser.games_played = 0;
           currentUser.wins = 0;
@@ -3062,7 +3492,7 @@
           currentUser.total_points = 0;
           
           userStats = {
-            username: newUser.username,
+            username: newUser.display_name,
             stats: {
               gamesPlayed: 0,
               wins: 0,
@@ -3080,8 +3510,8 @@
         
         if (userData) {
           // Merge database data into currentUser
-          currentUser.username = userData.username;
-          currentUser.role = userData.role || 'player';
+          currentUser.display_name = userData.display_name || userData.username || userData.email.split('@')[0];
+          currentUser.role = userData.role || 'user';
           currentUser.status = userData.status || 'active';
           currentUser.games_played = userData.games_played || 0;
           currentUser.wins = userData.wins || 0;
@@ -3126,7 +3556,8 @@
     function updateProfileDisplay() {
       if (!currentUser || !userStats) return;
       
-      document.getElementById('profileUsername').textContent = currentUser.username || 'Player';
+      const displayName = currentUser.display_name || currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
+      document.getElementById('profileUsername').textContent = displayName;
       document.getElementById('profileEmail').textContent = currentUser.email;
       
       const stats = userStats.stats;
