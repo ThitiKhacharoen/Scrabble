@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.1</title>
-  <!-- Version: 1.7.1 | Date: December 7, 2025 | PATCH: Removed Firebase code -->
+  <title>Scrabble Game v1.7.2</title>
+  <!-- Version: 1.7.2 | Date: December 7, 2025 | PATCH: Added owner role to admin access -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2716,7 +2716,7 @@
     
     function openAdminDashboard() {
       // Check if user has admin permissions
-      if (!currentUser || !['moderator', 'admin', 'super_admin'].includes(currentUser.role)) {
+      if (!currentUser || !['owner', 'moderator', 'admin', 'super_admin'].includes(currentUser.role)) {
         alert('Access denied. Admin permissions required.');
         return;
       }
@@ -3011,15 +3011,15 @@
       const adminTabBtn = document.getElementById('adminTabBtn');
       const adminSubTabAdmins = document.getElementById('adminSubTabAdmins');
       
-      if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'owner')) {
+      if (currentUser && ['owner', 'super_admin', 'admin', 'moderator'].includes(currentUser.role)) {
         // Show admin option in side panel menu
         if (adminPanelOption) adminPanelOption.style.display = 'flex';
         
         // Show admin tab in settings
         if (adminTabBtn) adminTabBtn.style.display = 'flex';
         
-        // Show admins subtab only for owners
-        if (currentUser.role === 'owner' && adminSubTabAdmins) {
+        // Show admins subtab only for owners and super_admins
+        if (['owner', 'super_admin'].includes(currentUser.role) && adminSubTabAdmins) {
           adminSubTabAdmins.style.display = 'block';
         }
         
