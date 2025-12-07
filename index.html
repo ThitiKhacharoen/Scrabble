@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.2</title>
-  <!-- Version: 1.7.2 | Date: December 7, 2025 | PATCH: Added owner role to admin access -->
+  <title>Scrabble Game v1.7.3</title>
+  <!-- Version: 1.7.3 | Date: December 7, 2025 | PATCH: Fixed warnings/bans tab errors -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2852,15 +2852,18 @@
       try {
         const { data: bans, error } = await window.supabase
           .from('bans')
-          .select(`
-            *,
-            user:users!bans_user_id_fkey(display_name, email),
-            banned_by_user:users!bans_banned_by_fkey(display_name, email)
-          `)
+          .select('*')
           .eq('active', true)
           .order('created_at', { ascending: false });
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error loading bans:', error);
+          if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
+            document.getElementById('bansTableBody').innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">⚠️ Bans table not set up yet. Create the table in Supabase to use this feature.</td></tr>';
+            return;
+          }
+          throw error;
+        }
         
         const tbody = document.getElementById('bansTableBody');
         tbody.innerHTML = '';
@@ -2870,9 +2873,37 @@
           return;
         }
         
-        bans.forEach(ban => {
-          const userName = ban.user?.display_name || ban.user?.email.split('@')[0] || 'Unknown';
-          const bannedBy = ban.banned_by_user?.display_name || ban.banned_by_user?.email.split('@')[0] || 'System';
+        // Load user details for each ban
+        for (const ban of bans) {
+          let userName = 'Unknown User';
+          let bannedBy = 'System';
+          
+          // Try to get banned user details
+          if (ban.user_id) {
+            const { data: user } = await window.supabase
+              .from('users')
+              .select('display_name, email')
+              .eq('id', ban.user_id)
+              .single();
+            
+            if (user) {
+              userName = user.display_name || user.email?.split('@')[0] || 'Unknown';
+            }
+          }
+          
+          // Try to get banned_by details
+          if (ban.banned_by) {
+            const { data: banAdmin } = await window.supabase
+              .from('users')
+              .select('display_name, email')
+              .eq('id', ban.banned_by)
+              .single();
+            
+            if (banAdmin) {
+              bannedBy = banAdmin.display_name || banAdmin.email?.split('@')[0] || 'Admin';
+            }
+          }
+          
           const bannedAt = new Date(ban.created_at).toLocaleString();
           const expires = ban.expires_at ? new Date(ban.expires_at).toLocaleString() : 'Permanent';
           
@@ -2891,39 +2922,72 @@
             </td>
           `;
           tbody.appendChild(row);
-        });
+        }
         
       } catch (error) {
         console.error('Error loading bans:', error);
-        document.getElementById('bansTableBody').innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #ef4444;">Error loading bans</td></tr>';
+        document.getElementById('bansTableBody').innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #ef4444;">Error loading bans: ' + error.message + '</td></tr>';
       }
     }
     
     async function loadAdminWarnings() {
       try {
+        // Try to load warnings - if table doesn't exist, show friendly message
         const { data: warnings, error } = await window.supabase
           .from('warnings')
-          .select(`
-            *,
-            user:users!warnings_user_id_fkey(display_name, email),
-            warned_by_user:users!warnings_warned_by_fkey(display_name, email)
-          `)
+          .select('*')
           .order('created_at', { ascending: false })
           .limit(100);
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error loading warnings:', error);
+          // Check if it's a table not found error
+          if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
+            document.getElementById('warningsTableBody').innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">⚠️ Warnings table not set up yet. Create the table in Supabase to use this feature.</td></tr>';
+            return;
+          }
+          throw error;
+        }
         
         const tbody = document.getElementById('warningsTableBody');
         tbody.innerHTML = '';
         
         if (!warnings || warnings.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">No warnings issued</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">No warnings issued yet</td></tr>';
           return;
         }
         
-        warnings.forEach(warning => {
-          const userName = warning.user?.display_name || warning.user?.email.split('@')[0] || 'Unknown';
-          const warnedBy = warning.warned_by_user?.display_name || warning.warned_by_user?.email.split('@')[0] || 'System';
+        // Load user details for each warning
+        for (const warning of warnings) {
+          let userName = 'Unknown User';
+          let warnedBy = 'System';
+          
+          // Try to get user details
+          if (warning.user_id) {
+            const { data: user } = await window.supabase
+              .from('users')
+              .select('display_name, email')
+              .eq('id', warning.user_id)
+              .single();
+            
+            if (user) {
+              userName = user.display_name || user.email?.split('@')[0] || 'Unknown';
+            }
+          }
+          
+          // Try to get warned_by details
+          if (warning.warned_by) {
+            const { data: warningAdmin } = await window.supabase
+              .from('users')
+              .select('display_name, email')
+              .eq('id', warning.warned_by)
+              .single();
+            
+            if (warningAdmin) {
+              warnedBy = warningAdmin.display_name || warningAdmin.email?.split('@')[0] || 'Admin';
+            }
+          }
+          
           const date = new Date(warning.created_at).toLocaleString();
           
           const row = document.createElement('tr');
@@ -2935,11 +2999,11 @@
             <td style="padding: 12px; color: #64748b;">${date}</td>
           `;
           tbody.appendChild(row);
-        });
+        }
         
       } catch (error) {
         console.error('Error loading warnings:', error);
-        document.getElementById('warningsTableBody').innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #ef4444;">Error loading warnings</td></tr>';
+        document.getElementById('warningsTableBody').innerHTML = '<tr><td colspan="4" style="padding: 40px; text-align: center; color: #ef4444;">Error loading warnings: ' + error.message + '</td></tr>';
       }
     }
     
