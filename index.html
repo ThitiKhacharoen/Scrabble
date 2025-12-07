@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.8</title>
-  <!-- Version: 1.7.8 | Date: December 7, 2025 | PATCH: Auto-reset theme and logout on tab close -->
+  <title>Scrabble Game v1.8.0</title>
+  <!-- Version: 1.8.0 | Date: December 7, 2025 | MAJOR: Score entire word, not just new tiles -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -5461,28 +5461,87 @@
           return a.row - b.row;
         });
 
+        // Get the full word range including existing tiles
+        let startPos, endPos, fixedPos;
+        if (this.direction === 'horizontal') {
+          fixedPos = tiles[0].row;
+          startPos = tiles[0].col;
+          endPos = tiles[tiles.length - 1].col;
+          
+          // Extend to beginning
+          while (startPos > 0 && this.board[fixedPos][startPos - 1]) {
+            startPos--;
+          }
+          
+          // Extend to end
+          while (endPos < 14 && this.board[fixedPos][endPos + 1]) {
+            endPos++;
+          }
+        } else {
+          fixedPos = tiles[0].col;
+          startPos = tiles[0].row;
+          endPos = tiles[tiles.length - 1].row;
+          
+          // Extend to beginning
+          while (startPos > 0 && this.board[startPos - 1][fixedPos]) {
+            startPos--;
+          }
+          
+          // Extend to end
+          while (endPos < 14 && this.board[endPos + 1][fixedPos]) {
+            endPos++;
+          }
+        }
+
         let score = 0;
         let wordMultiplier = 1;
 
-        tiles.forEach(({tile, row, col}) => {
-          let letterScore = tile.points;
+        // Score the entire word
+        for (let pos = startPos; pos <= endPos; pos++) {
+          let row, col, tile;
           
-          // Apply letter multipliers
-          if (PREMIUM_SQUARES.dls.some(([r, c]) => r === row && c === col)) {
-            letterScore *= 2;
-          } else if (PREMIUM_SQUARES.tls.some(([r, c]) => r === row && c === col)) {
-            letterScore *= 3;
+          if (this.direction === 'horizontal') {
+            row = fixedPos;
+            col = pos;
+          } else {
+            row = pos;
+            col = fixedPos;
           }
-
-          score += letterScore;
-
-          // Apply word multipliers
-          if (PREMIUM_SQUARES.dws.some(([r, c]) => r === row && c === col)) {
-            wordMultiplier *= 2;
-          } else if (PREMIUM_SQUARES.tws.some(([r, c]) => r === row && c === col)) {
-            wordMultiplier *= 3;
+          
+          // Get tile from board or newly placed
+          if (this.board[row][col]) {
+            tile = this.board[row][col];
+          } else {
+            const placed = this.placedTiles.find(t => t.row === row && t.col === col);
+            if (placed) {
+              tile = placed.tile;
+            }
           }
-        });
+          
+          if (tile) {
+            let letterScore = tile.points;
+            
+            // Only apply premium squares for newly placed tiles
+            const isNewlyPlaced = this.placedTiles.some(t => t.row === row && t.col === col);
+            if (isNewlyPlaced) {
+              // Apply letter multipliers
+              if (PREMIUM_SQUARES.dls.some(([r, c]) => r === row && c === col)) {
+                letterScore *= 2;
+              } else if (PREMIUM_SQUARES.tls.some(([r, c]) => r === row && c === col)) {
+                letterScore *= 3;
+              }
+
+              // Apply word multipliers
+              if (PREMIUM_SQUARES.dws.some(([r, c]) => r === row && c === col)) {
+                wordMultiplier *= 2;
+              } else if (PREMIUM_SQUARES.tws.some(([r, c]) => r === row && c === col)) {
+                wordMultiplier *= 3;
+              }
+            }
+            
+            score += letterScore;
+          }
+        }
 
         score *= wordMultiplier;
 
@@ -6380,32 +6439,87 @@
       }
 
       calculateAiScore(tiles, row, col, direction) {
+        // Get the full word range including existing tiles
+        let startPos = direction === 'horizontal' ? col : row;
+        let endPos = startPos + tiles.length - 1;
+        let fixedPos = direction === 'horizontal' ? row : col;
+        
+        // Extend to beginning
+        if (direction === 'horizontal') {
+          while (startPos > 0 && this.board[fixedPos][startPos - 1]) {
+            startPos--;
+          }
+          // Extend to end
+          while (endPos < 14 && this.board[fixedPos][endPos + 1]) {
+            endPos++;
+          }
+        } else {
+          while (startPos > 0 && this.board[startPos - 1][fixedPos]) {
+            startPos--;
+          }
+          // Extend to end
+          while (endPos < 14 && this.board[endPos + 1][fixedPos]) {
+            endPos++;
+          }
+        }
+
         let score = 0;
         let wordMultiplier = 1;
 
-        tiles.forEach((tile, i) => {
-          const r = direction === 'vertical' ? row + i : row;
-          const c = direction === 'horizontal' ? col + i : col;
+        // Score the entire word
+        for (let pos = startPos; pos <= endPos; pos++) {
+          let r, c, tile;
           
-          let letterScore = tile.points;
+          if (direction === 'horizontal') {
+            r = fixedPos;
+            c = pos;
+          } else {
+            r = pos;
+            c = fixedPos;
+          }
           
-          if (PREMIUM_SQUARES.dls.some(([pr, pc]) => pr === r && pc === c)) {
-            letterScore *= 2;
-          } else if (PREMIUM_SQUARES.tls.some(([pr, pc]) => pr === r && pc === c)) {
-            letterScore *= 3;
+          // Get tile from board or newly placed tiles
+          if (this.board[r][c]) {
+            tile = this.board[r][c];
+          } else {
+            // Find in newly placed tiles
+            const tileIndex = direction === 'horizontal' ? (c - col) : (r - row);
+            if (tileIndex >= 0 && tileIndex < tiles.length) {
+              tile = tiles[tileIndex];
+            }
           }
+          
+          if (tile) {
+            let letterScore = tile.points;
+            
+            // Only apply premium squares for newly placed tiles
+            const isNewlyPlaced = direction === 'horizontal' ? 
+              (r === row && c >= col && c < col + tiles.length) :
+              (c === col && r >= row && r < row + tiles.length);
+            
+            if (isNewlyPlaced) {
+              // Apply letter multipliers
+              if (PREMIUM_SQUARES.dls.some(([pr, pc]) => pr === r && pc === c)) {
+                letterScore *= 2;
+              } else if (PREMIUM_SQUARES.tls.some(([pr, pc]) => pr === r && pc === c)) {
+                letterScore *= 3;
+              }
 
-          score += letterScore;
-
-          if (PREMIUM_SQUARES.dws.some(([pr, pc]) => pr === r && pc === c)) {
-            wordMultiplier *= 2;
-          } else if (PREMIUM_SQUARES.tws.some(([pr, pc]) => pr === r && pc === c)) {
-            wordMultiplier *= 3;
+              // Apply word multipliers
+              if (PREMIUM_SQUARES.dws.some(([pr, pc]) => pr === r && pc === c)) {
+                wordMultiplier *= 2;
+              } else if (PREMIUM_SQUARES.tws.some(([pr, pc]) => pr === r && pc === c)) {
+                wordMultiplier *= 3;
+              }
+            }
+            
+            score += letterScore;
           }
-        });
+        }
 
         score *= wordMultiplier;
 
+        // Bonus for using all 7 tiles
         if (tiles.length === 7) {
           score += 50;
         }
