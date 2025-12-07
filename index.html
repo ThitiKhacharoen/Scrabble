@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.5</title>
-  <!-- Version: 1.7.5 | Date: December 7, 2025 | PATCH: Fixed duplicate switchAdminTab causing admin panel bugs -->
+  <title>Scrabble Game v1.7.7</title>
+  <!-- Version: 1.7.7 | Date: December 7, 2025 | PATCH: Simplified roles - only owner and admin -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2468,6 +2468,9 @@
         <button onclick="switchAdminTab('warnings')" id="tabWarnings" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
           ⚠️ Warnings
         </button>
+        <button onclick="switchAdminTab('admins')" id="tabAdmins" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+          👮 Admins
+        </button>
       </div>
 
       <!-- Users Tab Content -->
@@ -2539,6 +2542,32 @@
             <tbody id="warningsTableBody">
               <tr>
                 <td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">Loading warnings...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admins Tab Content -->
+      <div id="adminTabAdmins" style="display: none; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">Admin Management</h2>
+          <input type="text" id="adminSearchInput" placeholder="Search by email or name..." onkeyup="filterAdmins()" style="padding: 8px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; width: 300px;">
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="adminsTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Name</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Email</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Role</th>
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #475569;">Since</th>
+                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: #475569;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminsTableBody">
+              <tr>
+                <td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">Loading admins...</td>
               </tr>
             </tbody>
           </table>
@@ -2716,7 +2745,7 @@
     
     function openAdminDashboard() {
       // Check if user has admin permissions
-      if (!currentUser || !['owner', 'moderator', 'admin', 'super_admin'].includes(currentUser.role)) {
+      if (!currentUser || !['owner', 'admin'].includes(currentUser.role)) {
         alert('Access denied. Admin permissions required.');
         return;
       }
@@ -2743,7 +2772,7 @@
     
     function switchAdminTab(tab) {
       // Update tab buttons
-      const tabs = ['users', 'bans', 'warnings'];
+      const tabs = ['users', 'bans', 'warnings', 'admins'];
       tabs.forEach(t => {
         const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
         const content = document.getElementById('adminTab' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -2763,6 +2792,7 @@
       if (tab === 'users') loadAdminUsers();
       else if (tab === 'bans') loadAdminBans();
       else if (tab === 'warnings') loadAdminWarnings();
+      else if (tab === 'admins') loadAdmins();
     }
     
     async function loadAdminStats() {
@@ -2826,13 +2856,13 @@
           const row = document.createElement('tr');
           row.style.borderBottom = '1px solid #e2e8f0';
           row.innerHTML = `
-            <td style="padding: 12px;">${displayName}</td>
-            <td style="padding: 12px;"><span style="padding: 4px 12px; background: #f1f5f9; border-radius: 12px; font-size: 12px; font-weight: 600;">${user.role}</span></td>
+            <td style="padding: 12px; color: #1e293b;">${displayName}</td>
+            <td style="padding: 12px;"><span style="padding: 4px 12px; background: #f1f5f9; border-radius: 12px; font-size: 12px; font-weight: 600; color: #475569;">${user.role || 'user'}</span></td>
             <td style="padding: 12px; color: #64748b;">${joinDate}</td>
             <td style="padding: 12px; color: #64748b;">${lastActive}</td>
             <td style="padding: 12px; color: #64748b;">${gamesPlayed}</td>
             <td style="padding: 12px; color: #64748b;">${winRate}</td>
-            <td style="padding: 12px;">${status}</td>
+            <td style="padding: 12px; color: #1e293b;">${status}</td>
             <td style="padding: 12px; text-align: right;">
               <button onclick="showUserActions('${user.id}')" style="padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
                 Actions
@@ -3019,6 +3049,89 @@
       }
     }
     
+    function filterAdmins() {
+      const input = document.getElementById('adminSearchInput').value.toLowerCase();
+      const table = document.getElementById('adminsTable');
+      const rows = table.getElementsByTagName('tr');
+      
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent || row.innerText;
+        row.style.display = text.toLowerCase().indexOf(input) > -1 ? '' : 'none';
+      }
+    }
+    
+    async function loadAdmins() {
+      try {
+        const { data: admins, error } = await window.supabase
+          .from('users')
+          .select('*')
+          .in('role', ['owner', 'admin'])
+          .order('created_at', { ascending: true });
+        
+        if (error) throw error;
+        
+        const tbody = document.getElementById('adminsTableBody');
+        tbody.innerHTML = '';
+        
+        if (!admins || admins.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #94a3b8;">No admins found</td></tr>';
+          return;
+        }
+        
+        admins.forEach(admin => {
+          const displayName = admin.display_name || admin.email.split('@')[0];
+          const since = new Date(admin.created_at).toLocaleDateString();
+          const isCurrentUser = currentUser && admin.id === currentUser.id;
+          
+          // Role badge colors
+          let roleColor = '#94a3b8';
+          if (admin.role === 'owner') roleColor = '#ef4444';
+          else if (admin.role === 'admin') roleColor = '#8b5cf6';
+          
+          const row = document.createElement('tr');
+          row.style.borderBottom = '1px solid #e2e8f0';
+          row.innerHTML = `
+            <td style="padding: 12px; color: #1e293b;">${displayName}${isCurrentUser ? ' <span style="color: #667eea; font-size: 11px;">(You)</span>' : ''}</td>
+            <td style="padding: 12px; color: #64748b;">${admin.email}</td>
+            <td style="padding: 12px;"><span style="padding: 4px 12px; background: ${roleColor}; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">${admin.role.replace('_', ' ').toUpperCase()}</span></td>
+            <td style="padding: 12px; color: #64748b;">${since}</td>
+            <td style="padding: 12px; text-align: right;">
+              ${admin.role !== 'owner' && currentUser.role === 'owner' ? `
+                <button onclick="changeUserRole('${admin.id}', 'user')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                  Demote to User
+                </button>
+              ` : (isCurrentUser ? '<span style="color: #94a3b8; font-size: 12px;">You</span>' : '<span style="color: #94a3b8; font-size: 12px;">—</span>')}
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+      } catch (error) {
+        console.error('Error loading admins:', error);
+        document.getElementById('adminsTableBody').innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: #ef4444;">Error loading admins</td></tr>';
+      }
+    }
+    
+    async function changeUserRole(userId, newRole) {
+      if (!confirm(`Are you sure you want to change this user's role to "${newRole}"?`)) return;
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({ role: newRole })
+          .eq('id', userId);
+        
+        if (error) throw error;
+        
+        alert('Role updated successfully!');
+        loadAdmins(); // Reload the list
+      } catch (error) {
+        console.error('Error changing role:', error);
+        alert('Error changing role: ' + error.message);
+      }
+    }
+    
     function showUserActions(userId) {
       // For now, just alert. We'll add a proper modal later if needed
       alert('User actions for: ' + userId + '\n\nFeatures:\n- Warn user\n- Ban user\n- Change role\n\nComing soon!');
@@ -3075,15 +3188,15 @@
       const adminTabBtn = document.getElementById('adminTabBtn');
       const adminSubTabAdmins = document.getElementById('adminSubTabAdmins');
       
-      if (currentUser && ['owner', 'super_admin', 'admin', 'moderator'].includes(currentUser.role)) {
+      if (currentUser && ['owner', 'admin'].includes(currentUser.role)) {
         // Show admin option in side panel menu
         if (adminPanelOption) adminPanelOption.style.display = 'flex';
         
         // Show admin tab in settings
         if (adminTabBtn) adminTabBtn.style.display = 'flex';
         
-        // Show admins subtab only for owners and super_admins
-        if (['owner', 'super_admin'].includes(currentUser.role) && adminSubTabAdmins) {
+        // Show admins subtab only for owners
+        if (currentUser.role === 'owner' && adminSubTabAdmins) {
           adminSubTabAdmins.style.display = 'block';
         }
         
@@ -6814,11 +6927,6 @@
     function openAdminPanel() {
       const panel = document.getElementById('adminPanel');
       panel.style.display = 'flex';
-      
-      // Show admins tab only for super admin
-      if (currentUser && currentUser.role === 'super_admin') {
-        document.getElementById('tabAdmins').style.display = 'block';
-      }
       
       // Load data for current tab
       switchAdminTab('players');
