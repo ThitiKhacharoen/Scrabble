@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.7</title>
-  <!-- Version: 1.7.7 | Date: December 7, 2025 | PATCH: Simplified roles - only owner and admin -->
+  <title>Scrabble Game v1.7.8</title>
+  <!-- Version: 1.7.8 | Date: December 7, 2025 | PATCH: Auto-reset theme and logout on tab close -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -7100,6 +7100,19 @@
         guestBtn.addEventListener('click', playAnonymously);
         console.log('✅ Guest button listener attached');
       }
+      
+      // Reset theme and logout when browser tab closes
+      window.addEventListener('beforeunload', async () => {
+        // Reset theme to light-luxury
+        localStorage.setItem('scrabble_theme', 'light-luxury');
+        
+        // Sign out user
+        try {
+          await window.supabase.auth.signOut();
+        } catch (error) {
+          console.error('Error signing out:', error);
+        }
+      });
       
       try {
         // Get initial session
