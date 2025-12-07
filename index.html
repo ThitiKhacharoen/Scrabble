@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.7.3</title>
-  <!-- Version: 1.7.3 | Date: December 7, 2025 | PATCH: Fixed warnings/bans tab errors -->
+  <title>Scrabble Game v1.7.5</title>
+  <!-- Version: 1.7.5 | Date: December 7, 2025 | PATCH: Fixed duplicate switchAdminTab causing admin panel bugs -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -3176,221 +3176,13 @@
       }
     }
     
-    async function handleLogin() {
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPassword').value;
-      const errorDiv = document.getElementById('loginError');
-      
-      if (!email || !password) {
-        errorDiv.textContent = 'Please fill in all fields';
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (error) {
-          // Check if error is due to unconfirmed email
-          if (error.message.includes('Email not confirmed')) {
-            errorDiv.textContent = '⚠️ Please check your email and click the confirmation link before logging in.';
-            errorDiv.style.color = '#f39c12';
-            errorDiv.style.display = 'block';
-            return;
-          }
-          throw error;
-        }
-        
-        // Check if user has database record
-        const { data: userData, error: dbError } = await supabase
-          .from('users')
-          .select('username')
-          .eq('id', data.user.id)
-          .single();
-        
-        if (dbError || !userData) {
-          // User confirmed email but no database record - create it now
-          console.log('Creating database record for confirmed user...');
-          
-          const username = data.user.user_metadata?.username || 'Player' + Date.now();
-          
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              username: username,
-              games_played: 0,
-              wins: 0,
-              losses: 0,
-              rating: 1000
-            });
-          
-          if (insertError) {
-            console.error('Failed to create user record:', insertError);
-          }
-        }
-        
-        console.log('✅ Login successful');
-        // onAuthStateChange will handle the rest
-      } catch (error) {
-        console.error('Login error:', error);
-        errorDiv.textContent = getSupabaseErrorMessage(error.message);
-        errorDiv.style.display = 'block';
-      }
-    }
-    
-    async function handleSignup() {
-      const username = document.getElementById('signupUsername').value.trim();
-      const email = document.getElementById('signupEmail').value.trim();
-      const password = document.getElementById('signupPassword').value;
-      const errorDiv = document.getElementById('signupError');
-      
-      // Validation
-      if (!username || !email || !password) {
-        errorDiv.textContent = 'Please fill in all fields';
-        errorDiv.style.color = '#e74c3c';
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      if (username.length < 3 || username.length > 20) {
-        errorDiv.textContent = 'Username must be 3-20 characters';
-        errorDiv.style.color = '#e74c3c';
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      if (/\s/.test(username)) {
-        errorDiv.textContent = 'Username cannot contain spaces';
-        errorDiv.style.color = '#e74c3c';
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      if (password.length < 6) {
-        errorDiv.textContent = 'Password must be at least 6 characters';
-        errorDiv.style.color = '#e74c3c';
-        errorDiv.style.display = 'block';
-        return;
-      }
-      
-      try {
-        // Check if username already exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('username')
-          .eq('username', username)
-          .single();
-        
-        if (existingUser) {
-          errorDiv.textContent = 'Username already taken';
-          errorDiv.style.color = '#e74c3c';
-          errorDiv.style.display = 'block';
-          return;
-        }
-        
-        // Create auth user with options to skip email confirmation
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username
-            },
-            emailRedirectTo: window.location.href
-          }
-        });
-        
-        if (authError) throw authError;
-        
-        console.log('✅ Signup response:', authData);
-        
-        // Check if email confirmation is required
-        const needsConfirmation = authData.user && !authData.session;
-        
-        if (needsConfirmation) {
-          // Email confirmation required
-          errorDiv.textContent = '⚠️ Account created! Please check your email to confirm, then login.';
-          errorDiv.style.color = '#f39c12';
-          errorDiv.style.display = 'block';
-          
-          console.log('⚠️ Email confirmation required');
-          
-          // Clear form
-          document.getElementById('signupUsername').value = '';
-          document.getElementById('signupEmail').value = '';
-          document.getElementById('signupPassword').value = '';
-          
-          // Don't create database record yet - wait for confirmation
-          return;
-        }
-        
-        // User is auto-confirmed (confirmation disabled) - create database record
-        const { error: dbError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: email,
-            username: username,
-            games_played: 0,
-            wins: 0,
-            losses: 0,
-            rating: 1000
-          });
-        
-        if (dbError) {
-          console.error('Database insert error:', dbError);
-          throw dbError;
-        }
-        
-        console.log('✅ Account created and logged in, user ID:', authData.user.id);
-        
-        // Show success message
-        errorDiv.textContent = '✅ Account created! Logging you in...';
-        errorDiv.style.color = '#27ae60';
-        errorDiv.style.display = 'block';
-        
-        // onAuthStateChange will automatically log them in
-      } catch (error) {
-        console.error('Signup error:', error);
-        errorDiv.textContent = getSupabaseErrorMessage(error.message);
-        errorDiv.style.color = '#e74c3c';
-        errorDiv.style.display = 'block';
-      }
-    }
-    
-    async function handlePasswordReset() {
-      const email = document.getElementById('resetEmail').value.trim();
-      const messageDiv = document.getElementById('resetMessage');
-      
-      if (!email) {
-        messageDiv.textContent = 'Please enter your email';
-        messageDiv.style.color = '#e74c3c';
-        messageDiv.style.display = 'block';
-        return;
-      }
-      
-      try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.href
-        });
-        
-        if (error) throw error;
-        
-        messageDiv.textContent = 'Password reset link sent! Check your email.';
-        messageDiv.style.color = '#27ae60';
-        messageDiv.style.display = 'block';
-      } catch (error) {
-        console.error('Password reset error:', error);
-        messageDiv.textContent = getSupabaseErrorMessage(error.message);
-        messageDiv.style.color = '#e74c3c';
-        messageDiv.style.display = 'block';
-      }
-    }
+
+    // ============================================
+    // REMOVED: Email/password auth functions
+    // (handleLogin, handleSignup, handlePasswordReset)
+    // Using Google OAuth only
+    // ============================================
+
     
     async function handleLogout() {
       try {
@@ -3750,40 +3542,9 @@
       }
     }
     
-    function switchAdminSubTab(subtabName) {
-      // Hide all subtab contents
-      const subtabContents = document.querySelectorAll('.admin-subtab-content');
-      subtabContents.forEach(content => content.style.display = 'none');
-      
-      // Reset all subtab buttons
-      const subtabs = document.querySelectorAll('.admin-subtab');
-      subtabs.forEach(btn => {
-        btn.style.background = '#f8f9fa';
-        btn.style.color = '#7f8c8d';
-      });
-      
-      // Show selected subtab
-      if (subtabName === 'players') {
-        document.getElementById('adminSubTabPlayersContent').style.display = 'block';
-        document.getElementById('adminSubTabPlayers').style.background = 'var(--accent)';
-        document.getElementById('adminSubTabPlayers').style.color = 'white';
-      } else if (subtabName === 'banned') {
-        document.getElementById('adminSubTabBannedContent').style.display = 'block';
-        document.getElementById('adminSubTabBanned').style.background = 'var(--accent)';
-        document.getElementById('adminSubTabBanned').style.color = 'white';
-        loadBannedPlayers();
-      } else if (subtabName === 'warnings') {
-        document.getElementById('adminSubTabWarningsContent').style.display = 'block';
-        document.getElementById('adminSubTabWarnings').style.background = 'var(--accent)';
-        document.getElementById('adminSubTabWarnings').style.color = 'white';
-        loadWarnings();
-      } else if (subtabName === 'admins') {
-        document.getElementById('adminSubTabAdminsContent').style.display = 'block';
-        document.getElementById('adminSubTabAdmins').style.background = 'var(--accent)';
-        document.getElementById('adminSubTabAdmins').style.color = 'white';
-        loadAdmins();
-      }
-    }
+
+    // REMOVED: switchAdminSubTab function (dead code - old admin panel removed)
+
     
     function switchThemeFromSettings(themeName) {
       // Call existing switchTheme function
@@ -7067,28 +6828,9 @@
       document.getElementById('adminPanel').style.display = 'none';
     }
 
-    function switchAdminTab(tab) {
-      // Update tab buttons
-      document.querySelectorAll('.admin-tab').forEach(btn => {
-        btn.classList.remove('active-admin-tab');
-      });
-      document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active-admin-tab');
-      
-      // Update content
-      document.querySelectorAll('.admin-tab-content').forEach(content => {
-        content.style.display = 'none';
-      });
-      document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
-      
-      // Load data for the tab
-      if (tab === 'banned') {
-        loadBannedPlayers();
-      } else if (tab === 'warnings') {
-        loadWarnings();
-      } else if (tab === 'admins') {
-        loadAdmins();
-      }
-    }
+
+    // REMOVED: Duplicate switchAdminTab function (line 6831-6852)
+
 
 
     async function checkBanStatus() {
