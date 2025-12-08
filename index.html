@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Scrabble Game v2.0.0</title>
-  <!-- Version: 2.0.0 | Date: December 8, 2025 | MAJOR: Multiplayer lobby system (2-4 players) -->
+  <!-- Version: 2.0.0 | Date: December 8, 2025 | MAJOR: Multi-player lobby system (2-4 players) -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2640,7 +2640,13 @@
   </div>
 
   <div class="game-container" id="gameBoard" style="display: none;">
-    <div class="scores">
+    <!-- Multi-player scores (v2.0.0) -->
+    <div class="scores" id="multiplayerScores" style="display: none; flex-wrap: wrap; gap: 10px; justify-content: center;">
+      <!-- Player score cards will be dynamically added here -->
+    </div>
+    
+    <!-- Legacy 2-player scores -->
+    <div class="scores" id="legacyScores">
       <div class="score-card active" id="playerScoreCard">
         <div class="score-label" id="player1Label">Player 1</div>
         <div class="score-value" id="playerScore">0</div>
@@ -3912,14 +3918,17 @@
     let usePasscodes = false;
     let game = null; // Global game instance
     
-    // Online multiplayer variables
+    // Online multiplayer variables (v2.0.0 - Multi-player support)
     let peer = null;
-    let connection = null;
+    let connections = {}; // Map of player_id -> connection object
     let isHost = false;
     let myGameCode = null;
-    let onlinePlayerRole = null; // 'player' or 'ai' (which side we control)
+    let currentGameId = null; // Database game ID
+    let lobbyPlayers = []; // Array of player objects in lobby
+    let myPlayerId = null; // My player ID in the game
+    let myPlayerOrder = null; // My turn order (1, 2, 3, or 4)
+    let currentPlayerIndex = 0; // Index in lobbyPlayers array for current turn
     let myOnlineName = 'Player';
-    let opponentName = 'Opponent';
     let startingPlayer = null; // Will be randomized
 
     // Sound Effects System
@@ -4283,6 +4292,243 @@
       document.getElementById('multiplayerSetup').style.display = 'flex';
     }
 
+    // ============================================
+    // v2.0.0 LOBBY SYSTEM FUNCTIONS
+    // ============================================
+    
+    function updateLobbyPlayerList() {
+      const listEl = document.getElementById('lobbyPlayersList');
+      const countEl = document.getElementById('playerCount');
+      
+      countEl.textContent = lobbyPlayers.length;
+      
+      listEl.innerHTML = lobbyPlayers
+        .sort((a, b) => a.order - b.order)
+        .map(p => `
+          <div style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="font-weight: 600; color: #1e293b;">${p.name}</span>
+              ${p.isHost ? '<span style="margin-left: 8px; padding: 2px 8px; background: #667eea; color: white; border-radius: 4px; font-size: 0.75rem;">HOST</span>' : ''}
+            </div>
+            <div style="color: #64748b; font-size: 0.9rem;">Player ${p.order}</div>
+          </div>
+        `)
+        .join('');
+      
+      // Enable start button if 2+ players and we're host
+      if (isHost) {
+        const startBtn = document.getElementById('startGameBtn');
+        if (lobbyPlayers.length >= 2) {
+          startBtn.disabled = false;
+          startBtn.style.opacity = '1';
+          startBtn.style.cursor = 'pointer';
+          document.querySelector('#hostControls > div').style.display = 'none';
+        } else {
+          startBtn.disabled = true;
+          startBtn.style.opacity = '0.5';
+          startBtn.style.cursor = 'not-allowed';
+          document.querySelector('#hostControls > div').style.display = 'block';
+        }
+      }
+    }
+    
+    function setupPlayerConnection(conn) {
+      const peerId = conn.peer;
+      
+      conn.on('open', () => {
+        console.log('✅ Player connected:', peerId);
+        
+        // Store connection
+        connections[peerId] = conn;
+        
+        // Setup message handler
+        conn.on('data', (data) => handlePlayerMessage(peerId, data));
+        
+        conn.on('close', () => {
+          console.log('❌ Player disconnected:', peerId);
+          handlePlayerDisconnect(peerId);
+        });
+      });
+      
+      conn.on('error', (err) => {
+        console.error('Connection error:', peerId, err);
+      });
+    }
+    
+    async function handlePlayerMessage(peerId, data) {
+      console.log('📨 Message from', peerId, ':', data);
+      
+      switch (data.type) {
+        case 'join':
+          // Player wants to join lobby
+          await handlePlayerJoin(peerId, data.playerName);
+          break;
+          
+        case 'move':
+          // Player made a move (during game)
+          if (isHost) {
+            // Host relays to all other players
+            broadcastToAllPlayers(data);
+          }
+          // Apply move locally (both host and non-host)
+          if (game) {
+            game.applyRemoteMove(data);
+          }
+          break;
+          
+        case 'pass':
+          // Player passed turn
+          if (isHost) {
+            // Host relays to all other players
+            broadcastToAllPlayers(data);
+          }
+          // Apply pass locally
+          if (game) {
+            game.applyRemotePass(data);
+          }
+          break;
+      }
+    }
+    
+    async function handlePlayerJoin(peerId, playerName) {
+      if (!isHost) return; // Only host handles joins
+      
+      // Check if lobby is full
+      if (lobbyPlayers.length >= 4) {
+        connections[peerId].send({
+          type: 'join_failed',
+          reason: 'Game is full (max 4 players)'
+        });
+        connections[peerId].close();
+        delete connections[peerId];
+        return;
+      }
+      
+      // Add to database
+      const playerData = await addPlayerToGame(playerName, peerId);
+      if (!playerData) {
+        connections[peerId].send({
+          type: 'join_failed',
+          reason: 'Database error'
+        });
+        return;
+      }
+      
+      // Add to lobby
+      const newPlayer = {
+        id: playerData.id,
+        name: playerName,
+        order: playerData.player_order,
+        isHost: false,
+        peerId: peerId
+      };
+      lobbyPlayers.push(newPlayer);
+      
+      // Send success to joiner
+      connections[peerId].send({
+        type: 'join_success',
+        gameId: currentGameId,
+        playerId: playerData.id,
+        playerOrder: playerData.player_order,
+        players: lobbyPlayers
+      });
+      
+      // Broadcast updated player list to all
+      broadcastLobbyUpdate();
+      updateLobbyPlayerList();
+    }
+    
+    function broadcastLobbyUpdate() {
+      const message = {
+        type: 'lobby_update',
+        players: lobbyPlayers
+      };
+      
+      Object.values(connections).forEach(conn => {
+        try {
+          conn.send(message);
+        } catch (err) {
+          console.error('Error broadcasting to player:', err);
+        }
+      });
+    }
+    
+    function broadcastToAllPlayers(data) {
+      Object.values(connections).forEach(conn => {
+        try {
+          conn.send(data);
+        } catch (err) {
+          console.error('Error broadcasting:', err);
+        }
+      });
+    }
+    
+    function handlePlayerDisconnect(peerId) {
+      // Remove from lobby
+      lobbyPlayers = lobbyPlayers.filter(p => p.peerId !== peerId);
+      
+      // Remove connection
+      delete connections[peerId];
+      
+      // Update UI
+      updateLobbyPlayerList();
+      
+      // Broadcast update
+      if (isHost) {
+        broadcastLobbyUpdate();
+      }
+    }
+    
+    async function startLobbyGame() {
+      if (!isHost) return;
+      if (lobbyPlayers.length < 2) {
+        alert('Need at least 2 players to start!');
+        return;
+      }
+      
+      // Update game status
+      await updateGameStatus('playing');
+      
+      // Randomize starting player
+      const randomIndex = Math.floor(Math.random() * lobbyPlayers.length);
+      currentPlayerIndex = randomIndex;
+      
+      // Broadcast game start to all players
+      const startMessage = {
+        type: 'game_start',
+        players: lobbyPlayers,
+        startingPlayerOrder: lobbyPlayers[randomIndex].order
+      };
+      
+      broadcastToAllPlayers(startMessage);
+      
+      // Start game locally
+      startMultiplayerGame();
+    }
+    
+    function startMultiplayerGame() {
+      // Hide lobby
+      document.getElementById('createGameScreen').style.display = 'none';
+      document.getElementById('joinGameScreen').style.display = 'none';
+      
+      // Show game board
+      document.getElementById('gameBoard').style.display = 'flex';
+      document.getElementById('settingsBtn').style.display = 'block';
+      
+      // Initialize game
+      game = new ScrabbleGame('online');
+      game.init();
+      
+      console.log('🎮 Multi-player game started!');
+      console.log('Players:', lobbyPlayers);
+      console.log('My order:', myPlayerOrder);
+      console.log('Current turn:', lobbyPlayers[currentPlayerIndex].name);
+    }
+    
+    // ============================================
+    // END v2.0.0 LOBBY FUNCTIONS
+    // ============================================
+    
     function cancelOnlineGame() {
       if (peer) {
         peer.destroy();
@@ -4292,6 +4538,14 @@
         connection.close();
         connection = null;
       }
+      // Close all connections
+      Object.values(connections).forEach(conn => {
+        try {
+          conn.close();
+        } catch (err) {}
+      });
+      connections = {};
+      lobbyPlayers = [];
       backToMultiplayerSetup();
     }
 
@@ -4304,7 +4558,7 @@
         .join(' ');
     }
 
-    function createOnlineGame() {
+    async function createOnlineGame() {
       const nameInput = document.getElementById('onlinePlayerName').value.trim();
       if (!nameInput) {
         alert('Please enter your name');
@@ -4318,50 +4572,50 @@
       document.getElementById('createGameScreen').style.display = 'flex';
       
       isHost = true;
-      
-      // Randomize starting player (50/50 chance)
-      startingPlayer = Math.random() < 0.5 ? 'player' : 'ai';
-      
-      // Host will be one side based on random
-      if (startingPlayer === 'player') {
-        onlinePlayerRole = 'player'; // Host goes first
-      } else {
-        onlinePlayerRole = 'ai'; // Joiner goes first
-      }
+      myPlayerOrder = 1; // Host is always player 1
       
       // Generate random 6-digit code
       myGameCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // Initialize PeerJS
+      // Initialize PeerJS with game code as ID
       peer = new Peer(myGameCode);
       
       peer.on('open', async (id) => {
-        document.getElementById('connectionStatus').innerHTML = '<div style="font-size: 1.1rem; color: #4CAF50;">✓ Connected! Ready to receive opponent.</div>';
+        console.log('✅ Peer connected with ID:', id);
+        document.getElementById('connectionStatus').innerHTML = '<div style="font-size: 1.1rem; color: #4CAF50;">✓ Server connected!</div>';
         document.getElementById('gameCodeDisplay').style.display = 'block';
         document.getElementById('gameCode').textContent = myGameCode;
         
         // Create game record in database
-        await createGameRecord();
+        await createGameRecordV2();
+        
+        // Show lobby
+        document.getElementById('lobbyPlayersSection').style.display = 'block';
+        document.getElementById('hostControls').style.display = 'block';
+        
+        // Add host to lobby
+        const hostPlayer = {
+          id: myPlayerId,
+          name: myOnlineName,
+          order: 1,
+          isHost: true,
+          peerId: myGameCode
+        };
+        lobbyPlayers = [hostPlayer];
+        updateLobbyPlayerList();
       });
       
-      peer.on('connection', async (conn) => {
-        connection = conn;
-        setupConnection();
-        
-        connection.on('open', () => {
-          // Send game setup to joiner (who starts and names)
-          connection.send({
-            type: 'setup',
-            hostName: myOnlineName,
-            startingPlayer: startingPlayer,
-            gameId: currentGameId
-          });
-        });
+      // Listen for incoming connections
+      peer.on('connection', (conn) => {
+        console.log('📥 Incoming connection from:', conn.peer);
+        setupPlayerConnection(conn);
       });
       
       peer.on('error', (err) => {
         document.getElementById('connectionStatus').innerHTML = '<div style="color: #ff6b6b;">❌ Connection error. Please try again.</div>';
         console.error('Peer error:', err);
+      });
+    }
       });
     }
 
@@ -4381,32 +4635,46 @@
       
       // Use username if logged in, otherwise use entered name
       myOnlineName = currentUser && currentUser.displayName ? currentUser.displayName : capitalizeName(nameInput);
+      myGameCode = code;
       
       document.getElementById('joinStatus').textContent = 'Connecting...';
       
       isHost = false;
       
-      // Initialize PeerJS
+      // Initialize PeerJS with random ID
       peer = new Peer();
       
-      peer.on('open', (id) => {
-        // Connect to host
-        connection = peer.connect(code);
+      peer.on('open', (myPeerId) => {
+        console.log('✅ My peer ID:', myPeerId);
         
-        connection.on('open', () => {
-          document.getElementById('joinStatus').innerHTML = '<div style="color: #4CAF50;">✓ Connected!</div>';
-          setupConnection();
+        // Connect to host
+        const conn = peer.connect(code);
+        
+        conn.on('open', () => {
+          console.log('✅ Connected to host!');
+          document.getElementById('joinStatus').innerHTML = '<div style="color: #4CAF50;">✓ Connected! Joining lobby...</div>';
           
-          // Send our name to host
-          connection.send({
-            type: 'joinerName',
-            name: myOnlineName,
-            userId: currentUser ? currentUser.id : null,
-            peerId: id
+          // Store connection
+          connections[code] = conn;
+          
+          // Setup message handler
+          conn.on('data', (data) => handleJoinerMessage(data));
+          
+          conn.on('close', () => {
+            console.log('❌ Disconnected from host');
+            alert('Disconnected from game');
+            backToMultiplayerSetup();
+          });
+          
+          // Request to join
+          conn.send({
+            type: 'join',
+            playerName: myOnlineName,
+            peerId: myPeerId
           });
         });
         
-        connection.on('error', (err) => {
+        conn.on('error', (err) => {
           document.getElementById('joinStatus').textContent = '❌ Failed to connect. Check the code.';
           console.error('Connection error:', err);
         });
@@ -4416,6 +4684,57 @@
         document.getElementById('joinStatus').textContent = '❌ Connection error. Please try again.';
         console.error('Peer error:', err);
       });
+    }
+    
+    function handleJoinerMessage(data) {
+      console.log('📨 Message from host:', data);
+      
+      switch (data.type) {
+        case 'join_success':
+          // Successfully joined lobby
+          currentGameId = data.gameId;
+          myPlayerId = data.playerId;
+          myPlayerOrder = data.playerOrder;
+          lobbyPlayers = data.players;
+          
+          // Show lobby screen
+          document.getElementById('joinGameScreen').style.display = 'none';
+          document.getElementById('createGameScreen').style.display = 'flex';
+          document.getElementById('connectionStatus').innerHTML = '<div style="font-size: 1.1rem; color: #4CAF50;">✓ Joined lobby!</div>';
+          document.getElementById('gameCodeDisplay').style.display = 'block';
+          document.getElementById('gameCode').textContent = myGameCode;
+          document.getElementById('lobbyPlayersSection').style.display = 'block';
+          document.getElementById('waitingForHost').style.display = 'block';
+          
+          updateLobbyPlayerList();
+          break;
+          
+        case 'join_failed':
+          alert('Failed to join: ' + data.reason);
+          backToMultiplayerSetup();
+          break;
+          
+        case 'lobby_update':
+          // Update player list
+          lobbyPlayers = data.players;
+          updateLobbyPlayerList();
+          break;
+          
+        case 'game_start':
+          // Game is starting
+          lobbyPlayers = data.players;
+          currentPlayerIndex = lobbyPlayers.findIndex(p => p.order === data.startingPlayerOrder);
+          startMultiplayerGame();
+          break;
+          
+        case 'move':
+        case 'pass':
+          // Game moves (will be handled during gameplay)
+          if (game) {
+            handleRemoteMove(data);
+          }
+          break;
+      }
     }
 
     function setupConnection() {
@@ -4607,6 +4926,20 @@
     function sendMove(moveData) {
       if (connection && connection.open) {
         connection.send(moveData);
+      }
+    }
+    
+    // v2.0.0: Multi-player move broadcasting
+    function sendMoveV2(moveData) {
+      if (isHost) {
+        // Host broadcasts to all players
+        broadcastToAllPlayers(moveData);
+      } else {
+        // Non-host sends to host (host will broadcast)
+        const hostConnection = Object.values(connections)[0];
+        if (hostConnection && hostConnection.open) {
+          hostConnection.send(moveData);
+        }
       }
     }
 
@@ -5098,21 +5431,45 @@
 
     class ScrabbleGame {
       constructor(mode, difficulty) {
-        this.gameMode = mode; // 'ai' or 'human'
+        this.gameMode = mode; // 'ai', 'human', or 'online'
         this.aiDifficulty = difficulty || 5; // 1-10 scale (1=easiest, 10=hardest)
         this.board = Array(15).fill(null).map(() => Array(15).fill(null));
         this.tileBag = this.initializeTileBag();
-        this.playerRack = [];
-        this.aiRack = [];
-        this.playerScore = 0;
-        this.aiScore = 0;
         
-        // Set starting turn based on mode
-        if (this.gameMode === 'online' && startingPlayer) {
-          this.currentTurn = startingPlayer; // Use randomized starting player
+        // v2.0.0: Multi-player support
+        if (this.gameMode === 'online' && lobbyPlayers.length > 0) {
+          // Online multi-player mode
+          this.players = lobbyPlayers.map(p => ({
+            id: p.id,
+            name: p.name,
+            order: p.order,
+            score: 0,
+            rack: [],
+            isMe: p.order === myPlayerOrder
+          }));
+          this.currentPlayerIndex = currentPlayerIndex; // Set by lobby
+        } else if (this.gameMode === 'human') {
+          // Local 2-player mode
+          this.players = [
+            { id: 'p1', name: player1Name, order: 1, score: 0, rack: [], isMe: true },
+            { id: 'p2', name: player2Name, order: 2, score: 0, rack: [], isMe: false }
+          ];
+          this.currentPlayerIndex = 0;
         } else {
-          this.currentTurn = 'player'; // Default for other modes
+          // AI mode (single player)
+          this.players = [
+            { id: 'player', name: 'You', order: 1, score: 0, rack: [], isMe: true },
+            { id: 'ai', name: 'AI', order: 2, score: 0, rack: [], isMe: false }
+          ];
+          this.currentPlayerIndex = 0;
         }
+        
+        // Legacy support (for old code that still references these)
+        this.playerRack = this.players[0].rack;
+        this.aiRack = this.players.length > 1 ? this.players[1].rack : [];
+        this.playerScore = this.players[0].score;
+        this.aiScore = this.players.length > 1 ? this.players[1].score : 0;
+        this.currentTurn = 'player'; // Legacy - use currentPlayerIndex instead
         
         this.placedTiles = [];
         this.selectedTile = null;
@@ -5120,11 +5477,8 @@
         this.direction = 'horizontal';
         this.firstMove = true;
         this.consecutivePasses = 0;
-        this.pendingTransition = false; // Track if waiting for player to confirm turn
-        this.opponentPreviewTiles = []; // Track opponent's tile placements in real-time
-        // CHEATING PENALTY DISABLED
-        // this.tilesRevealed = false; // Track if tiles have been revealed this turn
-        // this.cheatingPenalty = 0; // Track cheating penalty points
+        this.pendingTransition = false;
+        this.opponentPreviewTiles = [];
         
         this.initializeGame();
       }
@@ -5270,27 +5624,35 @@
       }
 
       initializeGame() {
-        this.playerRack = this.drawTiles(7);
-        this.aiRack = this.drawTiles(7);
+        // Draw tiles for all players
+        this.players.forEach(player => {
+          player.rack = this.drawTiles(7);
+        });
+        
+        // Update legacy references
+        this.playerRack = this.players[0].rack;
+        if (this.players.length > 1) {
+          this.aiRack = this.players[1].rack;
+        }
+        
         this.renderBoard();
         this.renderRack();
         this.updateScores();
         this.updateInfo();
         this.setupEventListeners();
         
-        // Show starting message based on mode
+        // Show starting message
+        const currentPlayer = this.players[this.currentPlayerIndex];
         if (this.gameMode === 'online') {
-          if (this.currentTurn === onlinePlayerRole) {
+          if (currentPlayer.isMe) {
             this.showMessage(`You go first! First word must cover the center ★`);
           } else {
-            const opponentDisplayName = this.currentTurn === 'player' ? player1Name : player2Name;
-            this.showMessage(`${opponentDisplayName} goes first. Wait for their turn...`);
+            this.showMessage(`${currentPlayer.name} goes first. Wait for their turn...`);
           }
         } else {
-          const playerName = this.gameMode === 'human' ? player1Name : 'You';
-          const message = playerName === 'You' 
+          const message = currentPlayer.isMe 
             ? 'Your turn. First word must cover the center ★'
-            : `${playerName}'s turn. First word must cover the center ★`;
+            : `${currentPlayer.name}'s turn. First word must cover the center ★`;
           this.showMessage(message);
         }
       }
@@ -5376,8 +5738,15 @@
         
         rackEl.innerHTML = '';
         
-        // In 2-player mode, show the current player's rack
-        const currentRack = this.currentTurn === 'player' ? this.playerRack : this.aiRack;
+        // v2.0.0: Get current player's rack
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        const currentRack = currentPlayer.rack;
+        
+        // Only show rack if it's my turn in online mode
+        if (this.gameMode === 'online' && !currentPlayer.isMe) {
+          rackEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #64748b;">Waiting for other player...</div>';
+          return;
+        }
         
         currentRack.forEach((tile, index) => {
           // v1.3.2 Fix: Defensive check for undefined/null tiles
@@ -5594,9 +5963,10 @@
       }
 
       async playWord() {
-        // Check if it's our turn in online mode
-        if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
-          this.showMessage("Wait for opponent's turn");
+        // v2.0.0: Multi-player turn validation
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        if (this.gameMode === 'online' && !currentPlayer.isMe) {
+          this.showMessage(`Wait for ${currentPlayer.name}'s turn`);
           return;
         }
         
@@ -5643,11 +6013,15 @@
           this.board[row][col] = tile;
         });
 
-        // Update score for current player
-        if (this.currentTurn === 'player') {
-          this.playerScore += score;
-        } else {
-          this.aiScore += score;
+        // Update score for current player (v2.0.0 multi-player)
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        currentPlayer.score += score;
+        
+        // Update legacy variables
+        if (this.currentPlayerIndex === 0) {
+          this.playerScore = currentPlayer.score;
+        } else if (this.currentPlayerIndex === 1) {
+          this.aiScore = currentPlayer.score;
         }
         
         this.firstMove = false;
@@ -5661,25 +6035,26 @@
         this.consecutivePasses = 0;
 
         // Refill rack for current player
-        const currentRack = this.currentTurn === 'player' ? this.playerRack : this.aiRack;
-        const tilesUsed = currentRack.filter(t => t && t.placed).length;
-        const remainingTiles = currentRack.filter(t => !t || !t.placed);
+        const tilesUsed = currentPlayer.rack.filter(t => t && t.placed).length;
+        const remainingTiles = currentPlayer.rack.filter(t => !t || !t.placed);
         const newTiles = this.drawTiles(tilesUsed);
+        currentPlayer.rack = [...remainingTiles, ...newTiles];
         
-        if (this.currentTurn === 'player') {
-          this.playerRack = [...remainingTiles, ...newTiles];
-        } else {
-          this.aiRack = [...remainingTiles, ...newTiles];
+        // Update legacy racks
+        this.playerRack = this.players[0].rack;
+        if (this.players.length > 1) {
+          this.aiRack = this.players[1].rack;
         }
 
-        // Send move to opponent in online mode
+        // Send move to opponents in online mode
         if (this.gameMode === 'online') {
-          sendMove({
+          sendMoveV2({
             type: 'move',
             tiles: tilesUsedData,
             score: score,
             word: word,
-            newTilesCount: tilesUsed
+            newTilesCount: tilesUsed,
+            playerOrder: currentPlayer.order
           });
         }
 
@@ -5688,20 +6063,20 @@
         this.renderRack();
         this.updateInfo();
 
-        // Switch turn
-        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
-        this.updateTurnIndicator();
+        // Switch turn (v2.0.0 multi-player)
+        this.nextTurn();
         
         // Play turn change sound
         SFX.turnChange();
         
-        if (this.gameMode === 'ai' && this.currentTurn === 'ai') {
+        // Handle AI turn or show message
+        const nextPlayer = this.players[this.currentPlayerIndex];
+        if (this.gameMode === 'ai' && nextPlayer.id === 'ai') {
           this.showMessage('AI is thinking...');
           setTimeout(() => this.aiTurn(), 1500);
         } else if (this.gameMode === 'human') {
           // 2-player local mode
-          const playerName = this.currentTurn === 'player' ? player1Name : player2Name;
-          const message = playerName === 'You' ? 'Your turn' : `${playerName}'s turn`;
+          const message = nextPlayer.isMe ? 'Your turn' : `${nextPlayer.name}'s turn`;
           this.showMessage(message);
           this.showTurnTransition();
         } else if (this.gameMode === 'online') {
@@ -6567,9 +6942,10 @@
       }
 
       passTurn() {
-        // Check if it's our turn in online mode
-        if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
-          this.showMessage("Wait for opponent's turn");
+        // v2.0.0: Multi-player turn validation
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        if (this.gameMode === 'online' && !currentPlayer.isMe) {
+          this.showMessage(`Wait for ${currentPlayer.name}'s turn`);
           return;
         }
         
@@ -6578,33 +6954,35 @@
         
         this.consecutivePasses++;
         
-        // Send pass to opponent in online mode
+        // Send pass to opponents in online mode
         if (this.gameMode === 'online') {
-          sendMove({ type: 'pass' });
+          sendMoveV2({ 
+            type: 'pass',
+            playerOrder: currentPlayer.order
+          });
         }
         
-        const playerName = this.currentTurn === 'player' ? 
-          (this.gameMode === 'human' ? player1Name : this.gameMode === 'online' ? 'You' : 'You') : 
-          (this.gameMode === 'human' ? player2Name : this.gameMode === 'online' ? 'You' : 'AI');
-        this.showMessage(`${playerName} passed their turn`);
+        this.showMessage(`${currentPlayer.name} passed their turn`);
         
-        if (this.consecutivePasses >= 4) {
+        // End game if everyone passes (2x number of players)
+        if (this.consecutivePasses >= this.players.length * 2) {
           this.endGame();
           return;
         }
 
-        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
-        this.updateTurnIndicator();
+        // Switch to next turn
+        this.nextTurn();
         
-        if (this.gameMode === 'ai' && this.currentTurn === 'ai') {
+        // Handle AI or human turn
+        const nextPlayer = this.players[this.currentPlayerIndex];
+        if (this.gameMode === 'ai' && nextPlayer.id === 'ai') {
           setTimeout(() => this.aiTurn(), 1500);
         } else if (this.gameMode === 'human') {
-          const nextPlayer = this.currentTurn === 'player' ? player1Name : player2Name;
-          const message = nextPlayer === 'You' ? 'Your turn' : `${nextPlayer}'s turn`;
+          const message = nextPlayer.isMe ? 'Your turn' : `${nextPlayer.name}'s turn`;
           this.showMessage(message);
           this.showTurnTransition();
         } else if (this.gameMode === 'online') {
-          if (this.currentTurn === onlinePlayerRole) {
+          if (nextPlayer.isMe) {
             this.showMessage('Your turn!');
             this.renderRack();
           } else {
@@ -6617,29 +6995,38 @@
         // Play game over sound
         SFX.gameOver();
         
-        let winner;
-        let p1Name, p2Name;
+        // v2.0.0: Multi-player end game
+        // Sort players by score
+        const sortedPlayers = [...this.players].sort((a, b) => b.score - a.score);
+        const highestScore = sortedPlayers[0].score;
+        const winners = sortedPlayers.filter(p => p.score === highestScore);
         
-        if (this.gameMode === 'human') {
-          p1Name = player1Name;
-          p2Name = player2Name;
-          winner = this.playerScore > this.aiScore ? `${p1Name} wins!` : 
-                  this.aiScore > this.playerScore ? `${p2Name} wins!` : 
-                  'It\'s a tie!';
+        let resultMessage;
+        if (winners.length > 1) {
+          // Tie
+          const winnerNames = winners.map(p => p.name).join(' and ');
+          resultMessage = `It's a tie! ${winnerNames} tied with ${highestScore} points!`;
         } else {
-          p1Name = 'You';
-          p2Name = 'AI';
-          winner = this.playerScore > this.aiScore ? 'You win!' : 
-                  this.aiScore > this.playerScore ? 'AI wins!' : 
-                  'It\'s a tie!';
+          // Single winner
+          resultMessage = `${winners[0].name} wins with ${highestScore} points!`;
         }
         
-        this.showMessage(`Game Over! ${winner} Final scores - ${p1Name}: ${this.playerScore}, ${p2Name}: ${this.aiScore}`);
+        // Build score summary
+        const scoreList = sortedPlayers
+          .map((p, idx) => `${idx + 1}. ${p.name}: ${p.score}`)
+          .join(' | ');
         
-        // Save game result to Firebase (only for AI games)
-        if (this.mode === 'ai' && currentUser) {
-          const playerWon = this.playerScore > this.aiScore;
-          saveGameResult(playerWon, this.playerScore, this.aiScore);
+        this.showMessage(`Game Over! ${resultMessage}\n\nFinal Scores: ${scoreList}`);
+        
+        // Update database status
+        if (this.gameMode === 'online' && currentGameId) {
+          updateGameStatus('finished');
+        }
+        
+        // Save stats for user
+        if (this.gameMode === 'ai' && currentUser) {
+          const playerWon = this.players[0].score > (this.players[1]?.score || 0);
+          saveGameResult(playerWon, this.players[0].score, this.players[1]?.score || 0);
         }
         
         // Show play again button
@@ -6667,12 +7054,63 @@
       }
 
       updateScores() {
-        document.getElementById('playerScore').textContent = this.playerScore;
-        document.getElementById('aiScore').textContent = this.aiScore;
+        // v2.0.0: Multi-player support
+        if (this.players.length > 2) {
+          // Show multi-player scores
+          document.getElementById('legacyScores').style.display = 'none';
+          document.getElementById('multiplayerScores').style.display = 'flex';
+          
+          const container = document.getElementById('multiplayerScores');
+          container.innerHTML = this.players.map((player, idx) => {
+            const isActive = idx === this.currentPlayerIndex;
+            const isMe = player.isMe;
+            return `
+              <div class="score-card ${isActive ? 'active' : ''}" style="min-width: 120px;">
+                <div class="score-label" style="font-size: 0.9rem;">
+                  ${player.name}${isMe ? ' (You)' : ''}
+                </div>
+                <div class="score-value">${player.score}</div>
+              </div>
+            `;
+          }).join('');
+        } else {
+          // Use legacy 2-player display
+          document.getElementById('legacyScores').style.display = 'flex';
+          document.getElementById('multiplayerScores').style.display = 'none';
+          
+          // Update legacy scores
+          this.playerScore = this.players[0].score;
+          this.aiScore = this.players.length > 1 ? this.players[1].score : 0;
+          
+          document.getElementById('playerScore').textContent = this.playerScore;
+          document.getElementById('aiScore').textContent = this.aiScore;
+        }
       }
 
       updateInfo() {
         document.getElementById('tilesRemaining').textContent = this.tileBag.length;
+      }
+
+      // v2.0.0: Multi-player turn rotation
+      nextTurn() {
+        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+        
+        // Update legacy currentTurn for compatibility
+        if (this.players.length === 2) {
+          this.currentTurn = this.currentPlayerIndex === 0 ? 'player' : 'ai';
+        }
+        
+        this.updateTurnIndicator();
+        
+        // Show turn message
+        const currentPlayer = this.players[this.currentPlayerIndex];
+        if (this.gameMode === 'online') {
+          if (currentPlayer.isMe) {
+            this.showMessage('Your turn!');
+          } else {
+            this.showMessage(`Waiting for ${currentPlayer.name}...`);
+          }
+        }
       }
 
       updateTurnIndicator() {
@@ -6715,72 +7153,76 @@
         // Clear opponent preview tiles since they're now playing
         this.opponentPreviewTiles = [];
         
-        // Apply opponent's move to our board
+        // v2.0.0: Find which player made this move
+        const playerWhoMoved = this.players.find(p => p.order === data.playerOrder);
+        if (!playerWhoMoved) {
+          console.error('Unknown player order:', data.playerOrder);
+          return;
+        }
+        
+        // Apply move to board
         data.tiles.forEach(({letter, points, row, col}) => {
           this.board[row][col] = {letter, points};
         });
 
-        // Update opponent's score
-        if (this.currentTurn === 'player') {
-          this.playerScore += data.score;
-        } else {
-          this.aiScore += data.score;
+        // Update that player's score
+        playerWhoMoved.score += data.score;
+        
+        // Update legacy scores
+        if (playerWhoMoved.order === 1) {
+          this.playerScore = playerWhoMoved.score;
+        } else if (playerWhoMoved.order === 2) {
+          this.aiScore = playerWhoMoved.score;
         }
-
-        // Draw new tiles for opponent (but we don't know what they are)
-        // Just track that opponent drew some tiles
-        const tilesDrawn = data.newTilesCount || 0;
 
         this.firstMove = false;
         this.consecutivePasses = 0;
         
-        this.showMessage(`Opponent played "${data.word}" for ${data.score} points!`);
+        this.showMessage(`${playerWhoMoved.name} played "${data.word}" for ${data.score} points!`);
         
-        // Switch turn FIRST
-        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        // Switch to next turn
+        this.nextTurn();
         
-        // Update UI - CRITICAL: Force re-render
+        // Update UI
         this.updateScores();
-        this.renderBoard(); // Render board with opponent's tiles
-        this.updateTurnIndicator();
-        
-        if (this.currentTurn === onlinePlayerRole) {
-          this.showMessage('Your turn!');
-          this.renderRack(); // Render our rack
-        } else {
-          this.showMessage("Opponent's turn...");
-        }
+        this.renderBoard();
+        this.renderRack();
         
         // Save game state to database
-        this.saveGameState();
+        if (this.gameMode === 'online') {
+          this.saveGameState();
+        }
       }
 
-      applyRemotePass() {
-        this.consecutivePasses++;
-        this.showMessage('Opponent passed their turn');
+      applyRemotePass(data) {
+        // v2.0.0: Find which player passed
+        const playerWhoPassed = data && data.playerOrder ? 
+          this.players.find(p => p.order === data.playerOrder) :
+          this.players[this.currentPlayerIndex]; // Fallback for old 2-player
         
-        if (this.consecutivePasses >= 4) {
+        this.consecutivePasses++;
+        
+        const playerName = playerWhoPassed ? playerWhoPassed.name : 'Player';
+        this.showMessage(`${playerName} passed their turn`);
+        
+        // End game if too many passes
+        if (this.consecutivePasses >= this.players.length * 2) {
           this.endGame();
           return;
         }
         
-        // Switch turn
-        this.currentTurn = this.currentTurn === 'player' ? 'ai' : 'player';
+        // Switch to next turn
+        this.nextTurn();
         
-        // Update UI - CRITICAL: Force re-render after pass
+        // Update UI
         this.updateScores();
-        this.renderBoard(); // Re-render board
-        this.updateTurnIndicator();
-        
-        if (this.currentTurn === onlinePlayerRole) {
-          this.showMessage('Your turn!');
-          this.renderRack(); // Render our rack
-        } else {
-          this.showMessage("Opponent's turn...");
-        }
+        this.renderBoard();
+        this.renderRack();
         
         // Save game state to database
-        this.saveGameState();
+        if (this.gameMode === 'online') {
+          this.saveGameState();
+        }
       }
 
       // Handle opponent tile placement preview
@@ -6923,6 +7365,139 @@
         return null;
       }
     }
+    
+    // ============================================
+    // v2.0.0 MULTI-PLAYER DATABASE FUNCTIONS
+    // ============================================
+    
+    async function createGameRecordV2() {
+      try {
+        // Create game record
+        const { data: gameData, error: gameError } = await window.supabase
+          .from('online_games')
+          .insert({
+            game_code: myGameCode,
+            host_id: currentUser ? currentUser.id : null,
+            status: 'waiting',
+            max_players: 4
+          })
+          .select()
+          .single();
+        
+        if (gameError) throw gameError;
+        
+        currentGameId = gameData.id;
+        myPlayerId = gameData.id + '-host'; // Temporary ID for host
+        
+        // Add host as first player
+        const { data: playerData, error: playerError } = await window.supabase
+          .from('game_players')
+          .insert({
+            game_id: currentGameId,
+            player_id: currentUser ? currentUser.id : null,
+            player_name: myOnlineName,
+            player_order: 1,
+            is_host: true,
+            peer_id: myGameCode
+          })
+          .select()
+          .single();
+        
+        if (playerError) throw playerError;
+        
+        myPlayerId = playerData.id;
+        console.log('✅ Game created:', currentGameId, 'Player ID:', myPlayerId);
+        return currentGameId;
+      } catch (error) {
+        console.error('Error creating game:', error);
+        document.getElementById('connectionStatus').innerHTML = '<div style="color: #ff6b6b;">❌ Database error. Please try again.</div>';
+        return null;
+      }
+    }
+    
+    async function addPlayerToGame(playerName, peerId) {
+      try {
+        // Get current player count
+        const { data: players, error: countError } = await window.supabase
+          .from('game_players')
+          .select('player_order')
+          .eq('game_id', currentGameId)
+          .order('player_order', { ascending: false })
+          .limit(1);
+        
+        if (countError) throw countError;
+        
+        const nextOrder = players && players.length > 0 ? players[0].player_order + 1 : 1;
+        
+        if (nextOrder > 4) {
+          console.error('Game is full');
+          return null;
+        }
+        
+        // Add player
+        const { data: playerData, error: playerError } = await window.supabase
+          .from('game_players')
+          .insert({
+            game_id: currentGameId,
+            player_id: null, // Anonymous for now
+            player_name: playerName,
+            player_order: nextOrder,
+            is_host: false,
+            peer_id: peerId
+          })
+          .select()
+          .single();
+        
+        if (playerError) throw playerError;
+        
+        console.log('✅ Player added:', playerData);
+        return playerData;
+      } catch (error) {
+        console.error('Error adding player:', error);
+        return null;
+      }
+    }
+    
+    async function getGamePlayers() {
+      try {
+        const { data, error } = await window.supabase
+          .from('game_players')
+          .select('*')
+          .eq('game_id', currentGameId)
+          .order('player_order', { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Error getting players:', error);
+        return [];
+      }
+    }
+    
+    async function updateGameStatus(status) {
+      try {
+        const updates = { status };
+        if (status === 'playing') {
+          updates.started_at = new Date().toISOString();
+        } else if (status === 'finished') {
+          updates.finished_at = new Date().toISOString();
+        }
+        
+        const { error } = await window.supabase
+          .from('online_games')
+          .update(updates)
+          .eq('id', currentGameId);
+        
+        if (error) throw error;
+        console.log('✅ Game status updated:', status);
+      } catch (error) {
+        console.error('Error updating game status:', error);
+      }
+    }
+    
+    // ============================================
+    // END v2.0.0 FUNCTIONS
+    // ============================================
     
     async function updateGameRecord(updates) {
       if (!currentGameId) return;
