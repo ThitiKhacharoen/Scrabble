@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.8.0</title>
-  <!-- Version: 1.8.0 | Date: December 7, 2025 | MAJOR: Score entire word, not just new tiles -->
+  <title>Scrabble Game v1.8.1</title>
+  <!-- Version: 1.8.1 | Date: December 7, 2025 | PATCH: Fixed auto-logout using sessionStorage -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -1345,11 +1345,18 @@
       const SUPABASE_URL = 'https://bovfmxfdbrmbmybzvuss.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvdmZteGZkYnJtYm15Ynp2dXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4MDM0MDgsImV4cCI6MjA4MDM3OTQwOH0.558ePBHGLj5Igow2qy5PhB8TTN88snZ_dsv_KYhJAMI';
       
-      // Create Supabase client (the CDN exposes 'supabase' globally with createClient method)
+      // Create Supabase client with session storage (clears on tab close)
       const { createClient } = supabase;
-      window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          storage: window.sessionStorage, // Use sessionStorage instead of localStorage
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true
+        }
+      });
       
-      console.log('✅ Supabase initialized:', window.supabase);
+      console.log('✅ Supabase initialized with session storage:', window.supabase);
     }
   </script>
   
@@ -7215,18 +7222,12 @@
         console.log('✅ Guest button listener attached');
       }
       
-      // Reset theme and logout when browser tab closes
-      window.addEventListener('beforeunload', async () => {
-        // Reset theme to light-luxury
+      // On fresh browser session (not refresh), reset theme to default
+      // sessionStorage is cleared when browser/tab is closed
+      if (!sessionStorage.getItem('scrabble_session_started')) {
         localStorage.setItem('scrabble_theme', 'light-luxury');
-        
-        // Sign out user
-        try {
-          await window.supabase.auth.signOut();
-        } catch (error) {
-          console.error('Error signing out:', error);
-        }
-      });
+        sessionStorage.setItem('scrabble_session_started', 'true');
+      }
       
       try {
         // Get initial session
