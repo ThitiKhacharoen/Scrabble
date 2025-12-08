@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v1.8.1</title>
-  <!-- Version: 1.8.1 | Date: December 7, 2025 | PATCH: Fixed auto-logout using sessionStorage -->
+  <title>Scrabble Game v2.0.0</title>
+  <!-- Version: 2.0.0 | Date: December 8, 2025 | MAJOR: Multiplayer lobby system (2-4 players) -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2273,7 +2273,7 @@
           Play vs AI
         </button>
         <button class="btn-primary" onclick="showDeviceSelection()" style="padding: 20px 40px; font-size: 1.2rem;">
-          2 Players
+          Multiplayer
         </button>
       </div>
     </div>
@@ -2286,13 +2286,13 @@
       <div style="display: flex; flex-direction: column; gap: 20px; max-width: 500px; margin: 0 auto;">
         
         <button class="btn-primary" onclick="showPlayerNames()" style="padding: 30px; font-size: 1.1rem; text-align: left;">
-          <div style="font-weight: bold; margin-bottom: 8px;">📱 One Device</div>
+          <div style="font-weight: bold; margin-bottom: 8px;">📱 One Device (2 Players)</div>
           <div style="font-size: 0.9rem; opacity: 0.9;">Pass and play on the same device</div>
         </button>
         
         <button class="btn-primary" onclick="showMultiplayerSetup()" style="padding: 30px; font-size: 1.1rem; text-align: left;">
-          <div style="font-weight: bold; margin-bottom: 8px;">🔗 Two Devices (Online)</div>
-          <div style="font-size: 0.9rem; opacity: 0.9;">Play with a friend on different devices</div>
+          <div style="font-weight: bold; margin-bottom: 8px;">🌐 Online (2-4 Players)</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Play with friends online • 2 players recommended</div>
         </button>
         <button class="btn-secondary" onclick="backToModeSelection()" style="margin-top: 20px;">
           Back
@@ -2329,20 +2329,52 @@
     </div>
   </div>
 
-  <!-- Create Game Screen -->
+  <!-- Create Game / Lobby Screen -->
   <div class="game-container" id="createGameScreen" style="display: none;">
     <div style="text-align: center; padding: 40px;">
-      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Creating Game...</div>
-      <div style="max-width: 500px; margin: 0 auto;">
+      <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Game Lobby</div>
+      <div style="max-width: 600px; margin: 0 auto;">
+        
+        <!-- Game Code Display -->
+        <div id="gameCodeDisplay" style="display: none;">
+          <div style="font-size: 1.1rem; margin-bottom: 15px;">Share this code with friends:</div>
+          <div style="font-size: 3rem; font-weight: bold; color: var(--accent); padding: 30px; background: rgba(139, 90, 43, 0.1); border-radius: 12px; margin-bottom: 30px; letter-spacing: 8px;" id="gameCode"></div>
+        </div>
+        
+        <!-- Connection Status -->
         <div id="connectionStatus" style="padding: 20px; background: rgba(139, 90, 43, 0.1); border-radius: 12px; margin-bottom: 20px;">
           <div style="font-size: 1.1rem; margin-bottom: 15px;">⏳ Connecting to server...</div>
         </div>
-        <div id="gameCodeDisplay" style="display: none;">
-          <div style="font-size: 1.1rem; margin-bottom: 15px;">Share this code with your friend:</div>
-          <div style="font-size: 3rem; font-weight: bold; color: var(--accent); padding: 30px; background: rgba(139, 90, 43, 0.1); border-radius: 12px; margin-bottom: 20px; letter-spacing: 8px;" id="gameCode"></div>
-          <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 20px;">Waiting for opponent to join...</div>
+        
+        <!-- Players List -->
+        <div id="lobbyPlayersSection" style="display: none;">
+          <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; text-align: left;">
+            Players (<span id="playerCount">1</span>/4) 
+            <span style="font-size: 0.9rem; opacity: 0.7; font-weight: normal;">• 2 recommended</span>
+          </div>
+          <div id="lobbyPlayersList" style="background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: left;">
+            <!-- Players will be listed here -->
+          </div>
+          
+          <!-- Host Controls -->
+          <div id="hostControls" style="display: none;">
+            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 15px;">
+              ⚠️ Need at least 2 players to start
+            </div>
+            <button id="startGameBtn" class="btn-primary" onclick="startLobbyGame()" disabled style="width: 100%; padding: 15px; font-size: 1.1rem; opacity: 0.5; cursor: not-allowed;">
+              Start Game
+            </button>
+          </div>
+          
+          <!-- Non-host waiting -->
+          <div id="waitingForHost" style="display: none;">
+            <div style="font-size: 0.9rem; opacity: 0.8;">
+              Waiting for host to start the game...
+            </div>
+          </div>
         </div>
-        <button class="btn-secondary" onclick="cancelOnlineGame()">Cancel</button>
+        
+        <button class="btn-secondary" onclick="cancelOnlineGame()" style="margin-top: 20px;">Leave Lobby</button>
       </div>
     </div>
   </div>
