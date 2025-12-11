@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.0.0</title>
-  <!-- Version: 2.0.0 | Date: December 8, 2025 | MAJOR: Multi-player lobby system (2-4 players) -->
+  <title>Scrabble Game v2.0.1</title>
+  <!-- Version: 2.0.1 | Date: December 11, 2025 | FIX: Auth debugging and dictionary loading -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2754,6 +2754,15 @@
       try {
         console.log('🔐 Starting Google sign in...');
         
+        // Check if Supabase is loaded
+        if (!window.supabase) {
+          console.error('❌ Supabase not loaded!');
+          alert('Error: Authentication service not loaded. Please refresh the page.');
+          return;
+        }
+        
+        console.log('✅ Supabase loaded:', window.supabase);
+        
         // Hardcoded redirect URL for GitHub Pages
         const redirectUrl = 'https://thitikhacharoen.github.io/Scrabble/';
         console.log('📍 Redirect URL:', redirectUrl);
@@ -5134,7 +5143,9 @@
       const dictionaryUrls = [
         'https://raw.githubusercontent.com/jesstess/Scrabble/master/scrabble/sowpods.txt',
         'https://raw.githubusercontent.com/redbo/scrabble/master/dictionary.txt',
-        'https://cdn.jsdelivr.net/gh/jesstess/Scrabble@master/scrabble/sowpods.txt'
+        'https://cdn.jsdelivr.net/gh/jesstess/Scrabble@master/scrabble/sowpods.txt',
+        'https://gist.githubusercontent.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/sowpods.txt',
+        'https://www-cs-faculty.stanford.edu/~knuth/sgb-words.txt'
       ];
       
       // Try each URL until one works
@@ -7819,8 +7830,13 @@
       // Attach auth button listeners
       const googleBtn = document.getElementById('googleSignInBtn');
       if (googleBtn) {
-        googleBtn.addEventListener('click', signInWithGoogle);
+        googleBtn.addEventListener('click', (e) => {
+          console.log('🖱️ Google button clicked!', e);
+          signInWithGoogle();
+        });
         console.log('✅ Google button listener attached');
+      } else {
+        console.error('❌ Google button not found in DOM!');
       }
       
       const guestBtn = document.getElementById('guestPlayBtn');
