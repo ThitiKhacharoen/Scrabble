@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.0.2</title>
-  <!-- Version: 2.0.2 | Date: December 11, 2025 | FIX: Syntax error - removed duplicate brackets -->
+  <title>Scrabble Game v2.0.3</title>
+  <!-- Version: 2.0.3 | Date: December 11, 2025 | FIX: Multiple syntax errors fixed -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -6023,7 +6023,7 @@
         });
 
         // Update score for current player (v2.0.0 multi-player)
-        const currentPlayer = this.players[this.currentPlayerIndex];
+        // currentPlayer already declared at top of function
         currentPlayer.score += score;
         
         // Update legacy variables
