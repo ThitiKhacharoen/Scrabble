@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.0.1</title>
-  <!-- Version: 2.0.1 | Date: December 11, 2025 | FIX: Auth debugging and dictionary loading -->
+  <title>Scrabble Game v2.0.2</title>
+  <!-- Version: 2.0.2 | Date: December 11, 2025 | FIX: Syntax error - removed duplicate brackets -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -4623,8 +4623,6 @@
       peer.on('error', (err) => {
         document.getElementById('connectionStatus').innerHTML = '<div style="color: #ff6b6b;">❌ Connection error. Please try again.</div>';
         console.error('Peer error:', err);
-      });
-    }
       });
     }
 
