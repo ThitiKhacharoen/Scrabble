@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.0.3</title>
-  <!-- Version: 2.0.3 | Date: December 11, 2025 | FIX: Multiple syntax errors fixed -->
+  <title>Scrabble Game v2.0.4</title>
+  <!-- Version: 2.0.4 | Date: December 11, 2025 | FIX: currentGameId duplicate declaration -->
+  <!-- Cache Buster: 20251211-0938 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -7344,7 +7345,7 @@
     // GAME RECONNECTION SYSTEM (v1.6.3)
     // ============================================
     
-    let currentGameId = null;
+    // currentGameId already declared in global variables section (line ~3936)
     let reconnectAttempts = 0;
     let maxReconnectAttempts = 3;
     
