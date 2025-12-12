@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.0.4</title>
-  <!-- Version: 2.0.4 | Date: December 11, 2025 | FIX: currentGameId duplicate declaration -->
-  <!-- Cache Buster: 20251211-0938 -->
+  <title>Scrabble Game v2.1.0</title>
+  <!-- Version: 2.1.0 | Date: December 11, 2025 | UI Improvements: centered buttons, theme selector, hamburger fixes -->
+  <!-- Cache Buster: 20251211-0945 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -1435,6 +1435,8 @@
     align-items: center;
     justify-content: center;
     font-size: 24px;
+    padding: 0;
+    line-height: 1;
   ">
     ☰
   </button>
@@ -1938,11 +1940,11 @@
         
         <!-- General Settings Section -->
         <h4 style="margin: 0 0 15px 0; color: #2c3e50; font-size: 16px;">🔧 Preferences</h4>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
+        <div style="background: var(--cell-bg, #f8f9fa); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-weight: bold; margin-bottom: 5px;">🔊 Sound Effects</div>
-              <div style="font-size: 12px; color: #7f8c8d;">Play sounds during gameplay</div>
+              <div style="font-weight: bold; margin-bottom: 5px; color: var(--text);">🔊 Sound Effects</div>
+              <div style="font-size: 12px; color: var(--text-secondary, #7f8c8d);">Play sounds during gameplay</div>
             </div>
             <label style="position: relative; display: inline-block; width: 50px; height: 26px; cursor: pointer; z-index: 10;">
               <input type="checkbox" id="soundToggle" checked onchange="toggleSound(this.checked)" style="opacity: 0; width: 0; height: 0; position: absolute;">
@@ -2270,10 +2272,10 @@
     <div style="text-align: center; padding: 40px;">
       <div style="font-size: 1.5rem; margin-bottom: 30px; color: var(--accent);">Choose Game Mode</div>
       <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-        <button class="btn-primary" onclick="showDifficulty()" style="padding: 20px 40px; font-size: 1.2rem;">
+        <button class="btn-primary" onclick="showDifficulty()" style="padding: 20px 40px; font-size: 1.2rem; text-align: center; min-width: 180px;">
           Play vs AI
         </button>
-        <button class="btn-primary" onclick="showDeviceSelection()" style="padding: 20px 40px; font-size: 1.2rem;">
+        <button class="btn-primary" onclick="showDeviceSelection()" style="padding: 20px 40px; font-size: 1.2rem; text-align: center; min-width: 180px;">
           Multiplayer
         </button>
       </div>
@@ -2810,6 +2812,10 @@
       document.getElementById('adminDashboard').style.display = 'block';
       toggleSettingsPanel(); // Close settings panel
       
+      // Hide hamburger menu in admin panel
+      const userMenuBtn = document.getElementById('userMenuBtn');
+      if (userMenuBtn) userMenuBtn.style.display = 'none';
+      
       // Update header with user info
       const displayName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
       document.getElementById('adminHeaderUsername').textContent = displayName;
@@ -2823,6 +2829,10 @@
     function exitAdminDashboard() {
       window.location.hash = '';
       document.getElementById('adminDashboard').style.display = 'none';
+      
+      // Show hamburger menu again
+      const userMenuBtn = document.getElementById('userMenuBtn');
+      if (userMenuBtn && !isAnonymousMode) userMenuBtn.style.display = 'flex';
     }
     
     function switchAdminTab(tab) {
@@ -3668,6 +3678,16 @@
       if (!isOpen) {
         updateProfileDisplay();
         switchSettingsTab('profile'); // Default to profile tab
+        
+        // Update theme selector to show current theme
+        const currentTheme = document.body.className.replace('theme-', '');
+        const options = document.querySelectorAll('.theme-option-settings');
+        options.forEach(option => {
+          const isActive = option.dataset.theme === currentTheme;
+          option.style.border = isActive ? '2px solid var(--accent)' : '2px solid #ddd';
+          const check = option.querySelector('.theme-check-settings');
+          if (check) check.style.color = isActive ? 'var(--accent)' : '#ddd';
+        });
       }
     }
     
@@ -4540,6 +4560,7 @@
     // ============================================
     
     function cancelOnlineGame() {
+      console.log('🚪 Leaving lobby...');
       if (peer) {
         peer.destroy();
         peer = null;
@@ -4556,6 +4577,7 @@
       });
       connections = {};
       lobbyPlayers = [];
+      console.log('✅ Lobby cleaned up, returning to setup');
       backToMultiplayerSetup();
     }
 
