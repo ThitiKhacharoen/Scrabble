@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.1.1</title>
-  <!-- Version: 2.1.1 | Date: December 11, 2025 | FIX: Leave lobby connection error -->
-  <!-- Cache Buster: 20251211-1010 -->
+  <title>Scrabble Game v2.1.2</title>
+  <!-- Version: 2.1.2 | Date: December 12, 2025 | FIX: Theme switching error -->
+  <!-- Cache Buster: 20251212-1012 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -7971,32 +7971,41 @@
       localStorage.setItem('scrabble_theme', themeId);
       currentTheme = themeId;
       
-      // Update UI
-      document.querySelectorAll('.theme-option').forEach(option => {
-        option.classList.remove('active');
-        const check = option.querySelector('.theme-check');
-        if (check) check.remove();
-      });
-      
-      const activeOption = event.target.closest('.theme-option');
-      activeOption.classList.add('active');
-      const checkmark = document.createElement('span');
-      checkmark.className = 'theme-check';
-      checkmark.textContent = '✓';
-      activeOption.appendChild(checkmark);
-      
-      // Close menu
-      toggleThemeMenu();
-      
-      // Show message
-      const messageEl = document.getElementById('message');
-      if (messageEl) {
-        const oldText = messageEl.textContent;
-        const themeName = activeOption.textContent.split(' ')[0];
-        messageEl.textContent = `Theme changed to ${themeName}`;
-        setTimeout(() => {
-          messageEl.textContent = oldText;
-        }, 2000);
+      // Update UI - only if theme menu exists
+      const themeOptions = document.querySelectorAll('.theme-option');
+      if (themeOptions.length > 0) {
+        themeOptions.forEach(option => {
+          option.classList.remove('active');
+          const check = option.querySelector('.theme-check');
+          if (check) check.remove();
+        });
+        
+        // Find the option matching this theme
+        const activeOption = document.querySelector(`.theme-option[data-theme="${themeId}"]`);
+        if (activeOption) {
+          activeOption.classList.add('active');
+          const checkmark = document.createElement('span');
+          checkmark.className = 'theme-check';
+          checkmark.textContent = '✓';
+          activeOption.appendChild(checkmark);
+          
+          // Show message
+          const messageEl = document.getElementById('message');
+          if (messageEl) {
+            const oldText = messageEl.textContent;
+            const themeName = activeOption.textContent.split(' ')[0];
+            messageEl.textContent = `Theme changed to ${themeName}`;
+            setTimeout(() => {
+              messageEl.textContent = oldText;
+            }, 2000);
+          }
+        }
+        
+        // Close menu if it exists
+        const themeMenu = document.getElementById('themeMenu');
+        if (themeMenu && themeMenu.style.display === 'block') {
+          toggleThemeMenu();
+        }
       }
     }
   </script>
