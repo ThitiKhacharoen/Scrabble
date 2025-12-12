@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v2.1.0</title>
-  <!-- Version: 2.1.0 | Date: December 11, 2025 | UI Improvements: centered buttons, theme selector, hamburger fixes -->
-  <!-- Cache Buster: 20251211-0945 -->
+  <title>Scrabble Game v2.1.1</title>
+  <!-- Version: 2.1.1 | Date: December 11, 2025 | FIX: Leave lobby connection error -->
+  <!-- Cache Buster: 20251211-1010 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -4561,22 +4561,24 @@
     
     function cancelOnlineGame() {
       console.log('🚪 Leaving lobby...');
+      
+      // Destroy peer connection
       if (peer) {
         peer.destroy();
         peer = null;
       }
-      if (connection) {
-        connection.close();
-        connection = null;
-      }
-      // Close all connections
+      
+      // Close all connections (v2.0.0 uses connections object, not single connection)
       Object.values(connections).forEach(conn => {
         try {
           conn.close();
-        } catch (err) {}
+        } catch (err) {
+          console.log('Error closing connection:', err);
+        }
       });
       connections = {};
       lobbyPlayers = [];
+      
       console.log('✅ Lobby cleaned up, returning to setup');
       backToMultiplayerSetup();
     }
