@@ -3030,7 +3030,7 @@
     
     function openAdminDashboard() {
       // Check if user has admin permissions
-      if (!currentUser || !['owner', 'admin'].includes(currentUser.role)) {
+      if (!currentUser || !['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
         alert('Access denied. Admin permissions required.');
         return;
       }
@@ -3047,7 +3047,8 @@
       // Update header with user info
       const displayName = currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
       document.getElementById('adminHeaderUsername').textContent = displayName;
-      document.getElementById('adminHeaderRole').textContent = currentUser.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const roleDisplay = currentUser.role === 'super_admin' ? 'Owner' : currentUser.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      document.getElementById('adminHeaderRole').textContent = roleDisplay;
       
       // Load admin data
       loadAdminStats();
@@ -3360,7 +3361,7 @@
         const { data: admins, error } = await window.supabase
           .from('users')
           .select('*')
-          .in('role', ['owner', 'admin'])
+          .in('role', ['owner', 'admin', 'super_admin'])
           .order('created_at', { ascending: true });
         
         if (error) throw error;
@@ -3381,6 +3382,7 @@
           // Role badge colors
           let roleColor = '#94a3b8';
           if (admin.role === 'owner') roleColor = '#ef4444';
+          else if (admin.role === 'super_admin') roleColor = '#f59e0b';
           else if (admin.role === 'admin') roleColor = '#8b5cf6';
           
           const row = document.createElement('tr');
@@ -3388,10 +3390,10 @@
           row.innerHTML = `
             <td style="padding: 12px; color: #1e293b;">${displayName}${isCurrentUser ? ' <span style="color: #667eea; font-size: 11px;">(You)</span>' : ''}</td>
             <td style="padding: 12px; color: #64748b;">${admin.email}</td>
-            <td style="padding: 12px;"><span style="padding: 4px 12px; background: ${roleColor}; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">${admin.role.replace('_', ' ').toUpperCase()}</span></td>
+            <td style="padding: 12px;"><span style="padding: 4px 12px; background: ${roleColor}; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">${admin.role === 'super_admin' ? 'OWNER' : admin.role.replace('_', ' ').toUpperCase()}</span></td>
             <td style="padding: 12px; color: #64748b;">${since}</td>
             <td style="padding: 12px; text-align: right;">
-              ${admin.role !== 'owner' && currentUser.role === 'owner' ? `
+              ${admin.role !== 'owner' && admin.role !== 'super_admin' && ['owner', 'super_admin'].includes(currentUser.role) ? `
                 <button onclick="changeUserRole('${admin.id}', 'user')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
                   Demote to User
                 </button>
@@ -3715,22 +3717,22 @@
       console.log('🔍 Admin Check:', {
         username: currentUser.username,
         role: currentUser.role,
-        hasAdminRole: currentUser.role === 'admin' || currentUser.role === 'owner'
+        hasAdminRole: ['owner', 'admin', 'super_admin'].includes(currentUser.role)
       });
       
       const adminPanelOption = document.getElementById('adminPanelOption');
       const adminTabBtn = document.getElementById('adminTabBtn');
       const adminSubTabAdmins = document.getElementById('adminSubTabAdmins');
       
-      if (currentUser && ['owner', 'admin'].includes(currentUser.role)) {
+      if (currentUser && ['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
         // Show admin option in side panel menu
         if (adminPanelOption) adminPanelOption.style.display = 'flex';
         
         // Show admin tab in settings
         if (adminTabBtn) adminTabBtn.style.display = 'flex';
         
-        // Show admins subtab only for owners
-        if (currentUser.role === 'owner' && adminSubTabAdmins) {
+        // Show admins subtab only for owners and super_admins
+        if (['owner', 'super_admin'].includes(currentUser.role) && adminSubTabAdmins) {
           adminSubTabAdmins.style.display = 'block';
         }
         
