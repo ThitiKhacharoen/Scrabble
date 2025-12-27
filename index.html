@@ -2761,7 +2761,7 @@
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white;">
           <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">⚡ Admin Testing Tools</div>
           
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
             <!-- Skip Own Calibration -->
             <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 8px;">
               <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Skip Your Calibration</div>
@@ -2781,6 +2781,15 @@
                   Set
                 </button>
               </div>
+            </div>
+            
+            <!-- Reset to Last Ranked ELO (Admin Only) -->
+            <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 8px;">
+              <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Reset to Last Ranked</div>
+              <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;" id="resetEloDesc">Restore rating before admin changes</div>
+              <button onclick="adminResetToLastRanked()" style="width: 100%; padding: 10px; background: white; color: #10b981; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                Reset ELO
+              </button>
             </div>
           </div>
           
@@ -3500,6 +3509,9 @@
         } else {
           document.getElementById('statAvgRating').textContent = '0';
         }
+        
+        // Update reset button state
+        updateResetButtonState();
       } catch (error) {
         console.error('Error loading calibration stats:', error);
       }
@@ -3516,7 +3528,8 @@
           .update({
             calibration_status: 'completed',
             calibration_games_played: 3,
-            rating: 1500
+            rating: 1500,
+            calibrated_rating: 1500
           })
           .eq('id', currentUser.id);
         
@@ -3524,9 +3537,11 @@
         
         currentUser.calibration_status = 'completed';
         currentUser.rating = 1500;
+        currentUser.calibrated_rating = 1500;
         
         alert('✅ Calibration skipped! Your rating is now 1500.');
         loadCalibrationStats();
+        updateResetButtonState();
       } catch (error) {
         console.error('Error skipping calibration:', error);
         alert('Error: ' + error.message);
@@ -3542,25 +3557,118 @@
       }
       
       try {
+        // Save current rating as last_ranked_rating before changing
+        // This allows reset back to pre-admin-change rating
+        const updateData = {
+          rating: rating,
+          calibration_status: 'completed',
+          calibration_games_played: 3
+        };
+        
+        // Only save last_ranked_rating if user doesn't have one yet, or if they're changing from their last ranked
+        if (!currentUser.last_ranked_rating) {
+          updateData.last_ranked_rating = currentUser.rating;
+        }
+        
         const { error } = await window.supabase
           .from('users')
-          .update({
-            rating: rating,
-            calibration_status: 'completed',
-            calibration_games_played: 3
-          })
+          .update(updateData)
           .eq('id', currentUser.id);
         
         if (error) throw error;
         
+        // Update local state
+        if (!currentUser.last_ranked_rating) {
+          currentUser.last_ranked_rating = currentUser.rating;
+        }
         currentUser.rating = rating;
         currentUser.calibration_status = 'completed';
         
-        alert(`✅ Your ELO is now ${rating}`);
+        alert(`✅ Your ELO is now ${rating}\n\nYou can reset back to ${currentUser.last_ranked_rating} using the Reset button.`);
         loadCalibrationStats();
       } catch (error) {
         console.error('Error setting ELO:', error);
         alert('Error: ' + error.message);
+      }
+    }
+    
+    async function adminResetToLastRanked() {
+      if (!currentUser) return;
+      
+      // Only admins can reset
+      if (!['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
+        alert('Only admins can reset their ELO.');
+        return;
+      }
+      
+      try {
+        // Get user's last ranked rating
+        const { data, error: fetchError } = await window.supabase
+          .from('users')
+          .select('last_ranked_rating, rating')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Check if they have a last ranked rating
+        if (!data.last_ranked_rating) {
+          alert('No previous ranked rating found.\n\nPlay a ranked game first, then your rating after that game will be saved.\n\nYou can then change your ELO via admin panel and reset back to your ranked rating.');
+          return;
+        }
+        
+        const lastRankedRating = data.last_ranked_rating;
+        
+        // Check if already at last ranked rating
+        if (data.rating === lastRankedRating) {
+          alert(`You're already at your last ranked rating: ${lastRankedRating}\n\nThis is the rating you had after your most recent ranked game.`);
+          return;
+        }
+        
+        if (!confirm(`Reset your ELO to your last ranked rating?\n\nCurrent: ${currentUser.rating}\nLast Ranked: ${lastRankedRating}\n\nThis will restore your rating from before admin changes.`)) {
+          return;
+        }
+        
+        // Reset to last ranked rating
+        const { error } = await window.supabase
+          .from('users')
+          .update({ rating: lastRankedRating })
+          .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.rating = lastRankedRating;
+        
+        alert(`✅ ELO reset to last ranked rating: ${lastRankedRating}`);
+        loadCalibrationStats();
+        updateResetButtonState();
+        
+      } catch (error) {
+        console.error('Error resetting to last ranked:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function updateResetButtonState() {
+      const descEl = document.getElementById('resetEloDesc');
+      
+      if (!currentUser) {
+        descEl.textContent = 'Restore rating before admin changes';
+        return;
+      }
+      
+      // Only show for admins
+      if (!['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
+        descEl.textContent = 'Admin only feature';
+        return;
+      }
+      
+      if (!currentUser.last_ranked_rating) {
+        descEl.textContent = 'Play ranked game first';
+      } else if (currentUser.rating === currentUser.last_ranked_rating) {
+        descEl.textContent = `At ranked rating: ${currentUser.last_ranked_rating}`;
+      } else {
+        descEl.textContent = `Reset to: ${currentUser.last_ranked_rating}`;
       }
     }
     
@@ -4795,11 +4903,12 @@
         
         const needsCalibration = data.calibration_status === 'pending';
         
-        // Update UI based on status
+        // Update UI based on status - always show banner/toggle for everyone
         const calibrationBanner = document.getElementById('calibrationBanner');
         const rankedToggle = document.getElementById('rankedToggle');
         const userRatingDisplay = document.getElementById('userRatingDisplay');
         
+        // Show banner for uncalibrated users (new and existing)
         if (needsCalibration) {
           calibrationBanner.style.display = 'block';
           rankedToggle.style.display = 'none';
@@ -5150,6 +5259,7 @@
           .from('users')
           .update({
             rating: finalRating,
+            calibrated_rating: finalRating, // Save original calibrated rating
             calibration_status: 'completed'
           })
           .eq('id', currentUser.id);
@@ -5158,6 +5268,7 @@
         
         // Update local user object
         currentUser.rating = finalRating;
+        currentUser.calibrated_rating = finalRating;
         
         // Show completion message
         document.getElementById('calibrationAnalysis').style.display = 'none';
@@ -8009,6 +8120,11 @@
         // Update database status
         if (this.gameMode === 'online' && currentGameId) {
           updateGameStatus('finished');
+          
+          // Update last_ranked_rating if this was a ranked game
+          if (currentGameType === 'ranked' && currentUser) {
+            updateLastRankedRating();
+          }
         }
         
         // Save stats for user
@@ -8494,6 +8610,25 @@
         console.log('✅ Game status updated:', status);
       } catch (error) {
         console.error('Error updating game status:', error);
+      }
+    }
+    
+    async function updateLastRankedRating() {
+      // Save current rating as last_ranked_rating after a ranked game
+      if (!currentUser) return;
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({ last_ranked_rating: currentUser.rating })
+          .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.last_ranked_rating = currentUser.rating;
+        console.log('✅ Last ranked rating updated:', currentUser.rating);
+      } catch (error) {
+        console.error('Error updating last ranked rating:', error);
       }
     }
     
