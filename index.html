@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.3</title>
-  <!-- Version: 3.0.3 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
+  <title>Scrabble Game v3.0.4</title>
+  <!-- Version: 3.0.4 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
   <!-- Cache Buster: 20251227-0002 -->
   
   <!-- PWA Meta Tags -->
@@ -5057,7 +5057,7 @@
     };
     
     // Current game type
-    let currentGameType = null; // 'ranked' or 'unranked' - must be selected by user
+    let currentGameType = 'unranked'; // 'ranked' or 'unranked' - default to unranked for now
     
     // Move flagging for calibration
     let currentMoveData = {
@@ -5938,11 +5938,11 @@
         return;
       }
       
-      // Validate game type is selected
-      if (!currentGameType) {
-        alert('⚠️ Please select a game type (Ranked or Unranked)');
-        return;
-      }
+      // Validate game type is selected - COMMENTED OUT TEMPORARILY
+      // if (!currentGameType) {
+      //   alert('⚠️ Please select a game type (Ranked or Unranked)');
+      //   return;
+      // }
       
       // Use username if logged in, otherwise use entered name
       myOnlineName = currentUser && currentUser.displayName ? currentUser.displayName : capitalizeName(nameInput);
@@ -6005,11 +6005,11 @@
         return;
       }
       
-      // Validate game type is selected
-      if (!currentGameType) {
-        alert('⚠️ Please select a game type (Ranked or Unranked)');
-        return;
-      }
+      // Validate game type is selected - COMMENTED OUT TEMPORARILY
+      // if (!currentGameType) {
+      //   alert('⚠️ Please select a game type (Ranked or Unranked)');
+      //   return;
+      // }
       
       if (code.length !== 6) {
         document.getElementById('joinStatus').textContent = 'Please enter a 6-character code';
