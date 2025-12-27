@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.0</title>
-  <!-- Version: 3.0.0 | Date: December 26, 2025 | MAJOR: ELO Calibration System -->
-  <!-- Cache Buster: 20251226-0001 -->
+  <title>Scrabble Game v3.0.1</title>
+  <!-- Version: 3.0.1 | Date: December 27, 2025 | PATCH: Admin ELO testing tools -->
+  <!-- Cache Buster: 20251227-0001 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -2635,6 +2635,9 @@
         <button onclick="switchAdminTab('admins')" id="tabAdmins" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
           👮 Admins
         </button>
+        <button onclick="switchAdminTab('calibration')" id="tabCalibration" style="flex: 1; padding: 12px; background: transparent; color: #64748b; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+          🎯 ELO/Calibration
+        </button>
       </div>
 
       <!-- Users Tab Content -->
@@ -2735,6 +2738,109 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ELO/Calibration Tab Content (v3.0.0) -->
+      <div id="adminTabCalibration" style="display: none; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 700; color: #1e293b;">🎯 ELO & Calibration Management</h2>
+        
+        <!-- Admin Quick Actions -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px; color: white;">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">⚡ Admin Testing Tools</div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Skip Own Calibration -->
+            <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 8px;">
+              <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Skip Your Calibration</div>
+              <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;">Mark yourself as calibrated for testing</div>
+              <button onclick="adminSkipOwnCalibration()" style="width: 100%; padding: 10px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                Skip My Calibration
+              </button>
+            </div>
+            
+            <!-- Set Own ELO -->
+            <div style="background: rgba(255,255,255,0.15); padding: 16px; border-radius: 8px;">
+              <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Set Your ELO</div>
+              <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;">Test matchmaking at different ratings</div>
+              <div style="display: flex; gap: 8px;">
+                <input type="number" id="adminEloInput" placeholder="1000-2000" min="800" max="2200" value="1500" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 13px;">
+                <button onclick="adminSetOwnElo()" style="padding: 8px 16px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                  Set
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px; font-size: 11px; opacity: 0.8; font-style: italic;">
+            ⚠️ These tools are for admin testing only. Changes affect your account.
+          </div>
+        </div>
+        
+        <!-- User ELO Management -->
+        <div style="margin-bottom: 20px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1e293b;">Search User by Email</h3>
+          <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+            <input type="email" id="calibrationUserEmail" placeholder="user@example.com" style="flex: 1; padding: 10px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+            <button onclick="searchUserForCalibration()" style="padding: 10px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+              Search
+            </button>
+          </div>
+          
+          <!-- User Result -->
+          <div id="calibrationUserResult" style="display: none; background: #f8fafc; padding: 16px; border-radius: 8px; border: 2px solid #e2e8f0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+              <div>
+                <div style="font-weight: 600; font-size: 15px; color: #1e293b;" id="calUserName">-</div>
+                <div style="font-size: 13px; color: #64748b;" id="calUserEmail">-</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 12px; color: #64748b;">Current Rating</div>
+                <div style="font-size: 20px; font-weight: 700; color: #667eea;" id="calUserRating">-</div>
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <div style="font-size: 13px; margin-bottom: 4px;">
+                Status: <span id="calUserStatus" style="font-weight: 600;">-</span>
+              </div>
+              <div style="font-size: 13px;">
+                Games Played: <span id="calUserGamesPlayed" style="font-weight: 600;">-</span>
+              </div>
+            </div>
+            
+            <!-- Actions -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+              <button onclick="resetUserCalibration()" style="padding: 8px; background: #fbbf24; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Reset Calibration
+              </button>
+              <button onclick="completeUserCalibration()" style="padding: 8px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Mark Complete
+              </button>
+              <button onclick="showSetUserEloModal()" style="padding: 8px; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Set ELO
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Calibration Statistics -->
+        <div>
+          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1e293b;">Calibration Statistics</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #667eea;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Pending Calibration</div>
+              <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statPendingCal">0</div>
+            </div>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Completed</div>
+              <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statCompletedCal">0</div>
+            </div>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #fbbf24;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Avg Final Rating</div>
+              <div style="font-size: 24px; font-weight: 700; color: #1e293b;" id="statAvgRating">0</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2959,7 +3065,7 @@
     
     function switchAdminTab(tab) {
       // Update tab buttons
-      const tabs = ['users', 'bans', 'warnings', 'admins'];
+      const tabs = ['users', 'bans', 'warnings', 'admins', 'calibration'];
       tabs.forEach(t => {
         const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
         const content = document.getElementById('adminTab' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -2980,6 +3086,7 @@
       else if (tab === 'bans') loadAdminBans();
       else if (tab === 'warnings') loadAdminWarnings();
       else if (tab === 'admins') loadAdmins();
+      else if (tab === 'calibration') loadCalibrationStats();
     }
     
     async function loadAdminStats() {
@@ -3342,6 +3449,246 @@
       } catch (error) {
         console.error('Error unbanning user:', error);
         alert('Failed to unban user: ' + error.message);
+      }
+    }
+    
+    // ============================================
+    // v3.0.0 ADMIN CALIBRATION FUNCTIONS
+    // ============================================
+    
+    let selectedCalibrationUser = null;
+    
+    async function loadCalibrationStats() {
+      try {
+        // Pending calibration
+        const { count: pending } = await window.supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+          .eq('calibration_status', 'pending');
+        document.getElementById('statPendingCal').textContent = pending || 0;
+        
+        // Completed calibration
+        const { count: completed } = await window.supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+          .eq('calibration_status', 'completed');
+        document.getElementById('statCompletedCal').textContent = completed || 0;
+        
+        // Average rating
+        const { data: users } = await window.supabase
+          .from('users')
+          .select('rating')
+          .eq('calibration_status', 'completed');
+        
+        if (users && users.length > 0) {
+          const avg = Math.round(users.reduce((sum, u) => sum + (u.rating || 0), 0) / users.length);
+          document.getElementById('statAvgRating').textContent = avg;
+        } else {
+          document.getElementById('statAvgRating').textContent = '0';
+        }
+      } catch (error) {
+        console.error('Error loading calibration stats:', error);
+      }
+    }
+    
+    async function adminSkipOwnCalibration() {
+      if (!confirm('Skip your own calibration?\n\nThis will mark you as calibrated with rating 1500.')) {
+        return;
+      }
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({
+            calibration_status: 'completed',
+            calibration_games_played: 3,
+            rating: 1500
+          })
+          .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.calibration_status = 'completed';
+        currentUser.rating = 1500;
+        
+        alert('✅ Calibration skipped! Your rating is now 1500.');
+        loadCalibrationStats();
+      } catch (error) {
+        console.error('Error skipping calibration:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function adminSetOwnElo() {
+      const rating = parseInt(document.getElementById('adminEloInput').value);
+      
+      if (isNaN(rating) || rating < 800 || rating > 2200) {
+        alert('Please enter a rating between 800 and 2200');
+        return;
+      }
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({
+            rating: rating,
+            calibration_status: 'completed',
+            calibration_games_played: 3
+          })
+          .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        currentUser.rating = rating;
+        currentUser.calibration_status = 'completed';
+        
+        alert(`✅ Your ELO is now ${rating}`);
+        loadCalibrationStats();
+      } catch (error) {
+        console.error('Error setting ELO:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function searchUserForCalibration() {
+      const email = document.getElementById('calibrationUserEmail').value.trim();
+      
+      if (!email) {
+        alert('Please enter an email address');
+        return;
+      }
+      
+      try {
+        const { data, error } = await window.supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .single();
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            alert('User not found');
+            return;
+          }
+          throw error;
+        }
+        
+        selectedCalibrationUser = data;
+        
+        // Display user info
+        document.getElementById('calibrationUserResult').style.display = 'block';
+        document.getElementById('calUserName').textContent = data.display_name || data.email;
+        document.getElementById('calUserEmail').textContent = data.email;
+        document.getElementById('calUserRating').textContent = data.rating || 1000;
+        document.getElementById('calUserStatus').textContent = data.calibration_status || 'pending';
+        document.getElementById('calUserGamesPlayed').textContent = data.calibration_games_played || 0;
+        
+      } catch (error) {
+        console.error('Error searching user:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function resetUserCalibration() {
+      if (!selectedCalibrationUser) return;
+      
+      if (!confirm(`Reset calibration for ${selectedCalibrationUser.display_name}?\n\nThis will set them back to pending status.`)) {
+        return;
+      }
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({
+            calibration_status: 'pending',
+            calibration_games_played: 0,
+            rating: 1000
+          })
+          .eq('id', selectedCalibrationUser.id);
+        
+        if (error) throw error;
+        
+        // Delete calibration games
+        await window.supabase
+          .from('calibration_games')
+          .delete()
+          .eq('user_id', selectedCalibrationUser.id);
+        
+        alert('✅ Calibration reset successfully');
+        searchUserForCalibration(); // Refresh
+        loadCalibrationStats();
+      } catch (error) {
+        console.error('Error resetting calibration:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    async function completeUserCalibration() {
+      if (!selectedCalibrationUser) return;
+      
+      if (!confirm(`Mark calibration as complete for ${selectedCalibrationUser.display_name}?`)) {
+        return;
+      }
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({
+            calibration_status: 'completed',
+            calibration_games_played: 3
+          })
+          .eq('id', selectedCalibrationUser.id);
+        
+        if (error) throw error;
+        
+        alert('✅ Calibration marked as complete');
+        searchUserForCalibration(); // Refresh
+        loadCalibrationStats();
+      } catch (error) {
+        console.error('Error completing calibration:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
+    function showSetUserEloModal() {
+      if (!selectedCalibrationUser) return;
+      
+      const newRating = prompt(
+        `Set ELO for ${selectedCalibrationUser.display_name}\n\nCurrent: ${selectedCalibrationUser.rating || 1000}\n\nEnter new rating (800-2200):`,
+        selectedCalibrationUser.rating || 1000
+      );
+      
+      if (!newRating) return;
+      
+      const rating = parseInt(newRating);
+      if (isNaN(rating) || rating < 800 || rating > 2200) {
+        alert('Invalid rating. Must be between 800 and 2200.');
+        return;
+      }
+      
+      setUserElo(rating);
+    }
+    
+    async function setUserElo(rating) {
+      if (!selectedCalibrationUser) return;
+      
+      try {
+        const { error } = await window.supabase
+          .from('users')
+          .update({
+            rating: rating,
+            calibration_status: 'completed'
+          })
+          .eq('id', selectedCalibrationUser.id);
+        
+        if (error) throw error;
+        
+        alert(`✅ ELO set to ${rating}`);
+        searchUserForCalibration(); // Refresh
+        loadCalibrationStats();
+      } catch (error) {
+        console.error('Error setting ELO:', error);
+        alert('Error: ' + error.message);
       }
     }
     
