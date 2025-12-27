@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.1</title>
-  <!-- Version: 3.0.1 | Date: December 27, 2025 | PATCH: Admin ELO testing tools -->
-  <!-- Cache Buster: 20251227-0001 -->
+  <title>Scrabble Game v3.0.2</title>
+  <!-- Version: 3.0.2 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
+  <!-- Cache Buster: 20251227-0002 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -773,6 +773,50 @@
       box-shadow: 0 6px 16px rgba(231, 76, 60, 0.5);
     }
 
+    /* Loading Spinner */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .loading-spinner {
+      display: flex;
+      gap: 10px;
+    }
+
+    .loading-ball {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #667eea;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .loading-ball:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .loading-ball:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+      }
+      40% {
+        transform: scale(1);
+      }
+    }
+
   </style>
   
   <!-- Theme System Styles -->
@@ -1363,6 +1407,15 @@
   
 </head>
 <body class="theme-light-luxury">
+  <!-- Loading Spinner Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner">
+      <div class="loading-ball"></div>
+      <div class="loading-ball"></div>
+      <div class="loading-ball"></div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
   
   <!-- Authentication Screens -->
@@ -2335,9 +2388,9 @@
 
         <!-- Ranked/Unranked Toggle -->
         <div id="rankedToggle" style="display: none; background: rgba(139, 90, 43, 0.1); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
-          <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; text-align: left;">Game Type:</div>
+          <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; text-align: left;">Game Type: <span style="color: #e74c3c; font-size: 0.85rem;">*Required</span></div>
           <div style="display: flex; gap: 10px;">
-            <button id="rankedBtn" onclick="selectGameType('ranked')" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            <button id="rankedBtn" onclick="selectGameType('ranked')" style="flex: 1; padding: 12px; background: #d0d0d0; color: #666; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
               🏆 Ranked
             </button>
             <button id="unrankedBtn" onclick="selectGameType('unranked')" style="flex: 1; padding: 12px; background: #d0d0d0; color: #666; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
@@ -2345,10 +2398,10 @@
             </button>
           </div>
           <div id="rankedInfo" style="font-size: 0.85rem; opacity: 0.8; margin-top: 10px; text-align: left; display: none;">
-            Your rating: <span id="userRatingDisplay">1000</span> • Affects your ranking
+            🏆 Your rating: <span id="userRatingDisplay">1000</span> • Affects your ranking • Competitive matchmaking
           </div>
           <div id="unrankedInfo" style="font-size: 0.85rem; opacity: 0.8; margin-top: 10px; text-align: left; display: none;">
-            Casual play • No rating changes
+            🎮 Casual play • No rating changes • Just for fun
           </div>
         </div>
         
@@ -3482,6 +3535,7 @@
     let selectedCalibrationUser = null;
     
     async function loadCalibrationStats() {
+      showLoading();
       try {
         // Pending calibration
         const { count: pending } = await window.supabase
@@ -3514,6 +3568,8 @@
         updateResetButtonState();
       } catch (error) {
         console.error('Error loading calibration stats:', error);
+      } finally {
+        hideLoading();
       }
     }
     
@@ -3560,12 +3616,10 @@
         // Save current rating as last_ranked_rating before changing
         // This allows reset back to pre-admin-change rating
         const updateData = {
-          rating: rating,
-          calibration_status: 'completed',
-          calibration_games_played: 3
+          rating: rating
         };
         
-        // Only save last_ranked_rating if user doesn't have one yet, or if they're changing from their last ranked
+        // Only save last_ranked_rating if user doesn't have one yet
         if (!currentUser.last_ranked_rating) {
           updateData.last_ranked_rating = currentUser.rating;
         }
@@ -3582,7 +3636,6 @@
           currentUser.last_ranked_rating = currentUser.rating;
         }
         currentUser.rating = rating;
-        currentUser.calibration_status = 'completed';
         
         alert(`✅ Your ELO is now ${rating}\n\nYou can reset back to ${currentUser.last_ranked_rating} using the Reset button.`);
         loadCalibrationStats();
@@ -4808,7 +4861,7 @@
     };
     
     // Current game type
-    let currentGameType = 'unranked'; // 'ranked' or 'unranked'
+    let currentGameType = null; // 'ranked' or 'unranked' - must be selected by user
     
     // Move flagging for calibration
     let currentMoveData = {
@@ -5306,6 +5359,7 @@
     }
 
     async function showMultiplayerSetup() {
+      showLoading();
       document.getElementById('deviceSelection').style.display = 'none';
       
       // Check calibration status first
@@ -5318,6 +5372,7 @@
         const rejoinableGame = await checkForRejoinableGame();
         
         if (rejoinableGame) {
+          hideLoading();
           // Show rejoin prompt
           const rejoinPrompt = confirm(
             `You have an active game in progress!\n\n` +
@@ -5326,7 +5381,9 @@
           );
           
           if (rejoinPrompt) {
+            showLoading();
             const success = await rejoinGame(rejoinableGame);
+            hideLoading();
             if (success) {
               // Successfully rejoined, game will resume
               return;
@@ -5337,6 +5394,7 @@
       
       // No rejoinable game or user declined - show normal setup
       document.getElementById('multiplayerSetup').style.display = 'flex';
+      hideLoading();
     }
 
     function showJoinGame() {
@@ -5649,6 +5707,12 @@
         return;
       }
       
+      // Validate game type is selected
+      if (!currentGameType) {
+        alert('⚠️ Please select a game type (Ranked or Unranked)');
+        return;
+      }
+      
       // Use username if logged in, otherwise use entered name
       myOnlineName = currentUser && currentUser.displayName ? currentUser.displayName : capitalizeName(nameInput);
       
@@ -5707,6 +5771,12 @@
       
       if (!nameInput) {
         alert('Please enter your name');
+        return;
+      }
+      
+      // Validate game type is selected
+      if (!currentGameType) {
+        alert('⚠️ Please select a game type (Ranked or Unranked)');
         return;
       }
       
@@ -9056,6 +9126,17 @@
   
   <!-- Theme Switcher JavaScript -->
   <script>
+    // Loading Spinner Functions
+    function showLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) overlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
     let currentTheme = localStorage.getItem('scrabble_theme') || 'light-luxury';
     
     // Apply saved theme on load
