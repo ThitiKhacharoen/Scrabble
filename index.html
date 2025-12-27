@@ -1597,10 +1597,18 @@
         
         <!-- Stats Content (Collapsible) -->
         <div id="statsContent" style="display: none; padding: 15px; background: white; border-radius: 0 0 10px 10px; margin-top: 2px;">
-          <!-- ELO Rating (Prominent) -->
-          <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px;">
-            <div id="menuStatsElo" style="font-size: 32px; font-weight: 700; color: white;">1000</div>
-            <div style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 600;">ELO RATING</div>
+          <!-- ELO Rating (Prominent) - Shows button if uncalibrated -->
+          <div id="menuStatsEloContainer" style="text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px;">
+            <div id="menuStatsEloDisplay">
+              <div id="menuStatsElo" style="font-size: 32px; font-weight: 700; color: white;">1000</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 600;">ELO RATING</div>
+            </div>
+            <div id="menuStatsCalibrate" style="display: none;">
+              <div style="font-size: 16px; font-weight: 600; color: white; margin-bottom: 10px;">Not Calibrated</div>
+              <button onclick="goToCalibration()" style="padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                🎯 Start Calibration
+              </button>
+            </div>
           </div>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
@@ -1846,10 +1854,18 @@
           <p id="profileEmail" style="margin: 0; color: #7f8c8d; font-size: 14px;"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8eebe3efe7e2ceebf6efe3fee2eba0ede1e3">[email&#160;protected]</a></p>
         </div>
         
-        <!-- ELO Rating (Prominent) -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-          <div style="font-size: 14px; color: rgba(255,255,255,0.9); font-weight: 600; margin-bottom: 8px;">ELO RATING</div>
-          <div style="font-size: 48px; font-weight: 700; color: white;" id="statsEloRating">1000</div>
+        <!-- ELO Rating (Prominent) - Shows button if uncalibrated -->
+        <div id="settingsEloContainer" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+          <div id="settingsEloDisplay">
+            <div style="font-size: 14px; color: rgba(255,255,255,0.9); font-weight: 600; margin-bottom: 8px;">ELO RATING</div>
+            <div style="font-size: 48px; font-weight: 700; color: white;" id="statsEloRating">1000</div>
+          </div>
+          <div id="settingsCalibrate" style="display: none;">
+            <div style="font-size: 18px; font-weight: 600; color: white; margin-bottom: 12px;">Not Calibrated</div>
+            <button onclick="goToCalibration()" style="padding: 12px 24px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px;">
+              🎯 Start Calibration
+            </button>
+          </div>
         </div>
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
@@ -2849,6 +2865,17 @@
           <div style="margin-top: 12px; font-size: 11px; opacity: 0.8; font-style: italic;">
             ⚠️ These tools are for admin testing only. Changes affect your account.
           </div>
+          
+          <!-- Reset All Admins Button -->
+          <div style="margin-top: 16px; padding: 16px; background: rgba(239, 68, 68, 0.15); border-radius: 8px; border-left: 4px solid #ef4444;">
+            <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">🔄 Reset All Admins</div>
+            <div style="font-size: 12px; margin-bottom: 12px; color: #64748b;">
+              Clear calibration for all admins (owner, super_admin, admin)
+            </div>
+            <button onclick="adminResetAllAdmins()" style="width: 100%; padding: 10px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+              Reset All Admin Calibrations
+            </button>
+          </div>
         </div>
         
         <!-- User ELO Management -->
@@ -2900,7 +2927,12 @@
         
         <!-- Calibration Statistics -->
         <div>
-          <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1e293b;">Calibration Statistics</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #1e293b;">Calibration Statistics</h3>
+            <button onclick="resetAllAdminsCalibration()" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+              🔄 Reset All Admins
+            </button>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
             <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #667eea;">
               <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Pending Calibration</div>
@@ -3702,6 +3734,82 @@
       }
     }
     
+    async function adminResetAllAdmins() {
+      if (!confirm('⚠️ Reset ALL admins to uncalibrated?\n\nThis will:\n- Clear calibration status\n- Reset games played to 0\n- Set rating to 1000\n- Clear calibrated_rating\n- Clear last_ranked_rating\n- Delete calibration game records\n\nAffects all users with admin, super_admin, or owner role.\n\nContinue?')) {
+        return;
+      }
+      
+      try {
+        showLoading();
+        
+        // Delete calibration game records first
+        const { error: deleteError } = await window.supabase
+          .from('calibration_games')
+          .delete()
+          .in('user_id', 
+            window.supabase
+              .from('users')
+              .select('id')
+              .in('role', ['admin', 'super_admin', 'owner'])
+          );
+        
+        // Note: The above nested query might not work, so let's do it in two steps
+        
+        // Get all admin user IDs
+        const { data: admins, error: fetchError } = await window.supabase
+          .from('users')
+          .select('id')
+          .in('role', ['admin', 'super_admin', 'owner']);
+        
+        if (fetchError) throw fetchError;
+        
+        const adminIds = admins.map(a => a.id);
+        
+        // Delete their calibration games
+        if (adminIds.length > 0) {
+          const { error: delError } = await window.supabase
+            .from('calibration_games')
+            .delete()
+            .in('user_id', adminIds);
+          
+          if (delError) console.warn('Error deleting calibration games:', delError);
+        }
+        
+        // Reset admin users
+        const { error: updateError } = await window.supabase
+          .from('users')
+          .update({
+            calibration_status: 'pending',
+            calibration_games_played: 0,
+            rating: 1000,
+            calibrated_rating: null,
+            last_ranked_rating: null
+          })
+          .in('role', ['admin', 'super_admin', 'owner']);
+        
+        if (updateError) throw updateError;
+        
+        // Update local user if they're an admin
+        if (['admin', 'super_admin', 'owner'].includes(currentUser.role)) {
+          currentUser.calibration_status = 'pending';
+          currentUser.calibration_games_played = 0;
+          currentUser.rating = 1000;
+          currentUser.calibrated_rating = null;
+          currentUser.last_ranked_rating = null;
+        }
+        
+        hideLoading();
+        alert(`✅ All admin calibrations reset!\n\n${adminIds.length} admin(s) affected.`);
+        loadCalibrationStats();
+        updateResetButtonState();
+        
+      } catch (error) {
+        hideLoading();
+        console.error('Error resetting all admins:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+    
     function updateResetButtonState() {
       const descEl = document.getElementById('resetEloDesc');
       
@@ -3722,6 +3830,70 @@
         descEl.textContent = `At ranked rating: ${currentUser.last_ranked_rating}`;
       } else {
         descEl.textContent = `Reset to: ${currentUser.last_ranked_rating}`;
+      }
+    }
+    
+    async function resetAllAdminsCalibration() {
+      if (!confirm('⚠️ Reset ALL admins calibration?\n\nThis will:\n• Set all admins back to pending calibration\n• Reset their ratings to 1000\n• Clear calibration history\n• Delete calibration game records\n\nThis affects ALL users with admin/super_admin/owner roles.\n\nContinue?')) {
+        return;
+      }
+      
+      if (!confirm('Are you absolutely sure?\n\nThis action cannot be undone!')) {
+        return;
+      }
+      
+      showLoading();
+      
+      try {
+        // Reset all admin users
+        const { error: updateError } = await window.supabase
+          .from('users')
+          .update({
+            calibration_status: 'pending',
+            calibration_games_played: 0,
+            rating: 1000,
+            calibrated_rating: null,
+            last_ranked_rating: null
+          })
+          .in('role', ['admin', 'super_admin', 'owner']);
+        
+        if (updateError) throw updateError;
+        
+        // Delete calibration games for admins
+        const { data: admins } = await window.supabase
+          .from('users')
+          .select('id')
+          .in('role', ['admin', 'super_admin', 'owner']);
+        
+        if (admins && admins.length > 0) {
+          const adminIds = admins.map(a => a.id);
+          const { error: deleteError } = await window.supabase
+            .from('calibration_games')
+            .delete()
+            .in('user_id', adminIds);
+          
+          if (deleteError) throw deleteError;
+        }
+        
+        // Update current user if they're an admin
+        if (['admin', 'super_admin', 'owner'].includes(currentUser.role)) {
+          currentUser.calibration_status = 'pending';
+          currentUser.calibration_games_played = 0;
+          currentUser.rating = 1000;
+          currentUser.calibrated_rating = null;
+          currentUser.last_ranked_rating = null;
+        }
+        
+        alert(`✅ All admins reset!\n\nAll admin accounts are now set to:\n• Calibration: Pending\n• Rating: 1000\n• History: Cleared`);
+        
+        loadCalibrationStats();
+        updateResetButtonState();
+        
+      } catch (error) {
+        console.error('Error resetting admins:', error);
+        alert('Error: ' + error.message);
+      } finally {
+        hideLoading();
       }
     }
     
@@ -4153,8 +4325,19 @@
       document.getElementById('profileUsername').textContent = displayName;
       document.getElementById('profileEmail').textContent = currentUser.email;
       
-      // ELO Rating
-      document.getElementById('statsEloRating').textContent = currentUser.rating || 1000;
+      // ELO Rating - Show calibration button or rating
+      const isCalibrated = currentUser.calibration_status === 'completed';
+      const settingsEloDisplay = document.getElementById('settingsEloDisplay');
+      const settingsCalibrate = document.getElementById('settingsCalibrate');
+      
+      if (isCalibrated) {
+        settingsEloDisplay.style.display = 'block';
+        settingsCalibrate.style.display = 'none';
+        document.getElementById('statsEloRating').textContent = currentUser.rating || 1000;
+      } else {
+        settingsEloDisplay.style.display = 'none';
+        settingsCalibrate.style.display = 'block';
+      }
       
       const stats = userStats.stats;
       document.getElementById('statsGamesPlayed').textContent = stats.gamesPlayed || 0;
@@ -4207,7 +4390,20 @@
         
         // Update stats in expandable section
         if (userStats && userStats.stats) {
-          document.getElementById('menuStatsElo').textContent = currentUser.rating || 1000;
+          // Show calibration button or rating based on status
+          const isCalibrated = currentUser.calibration_status === 'completed';
+          const menuEloDisplay = document.getElementById('menuStatsEloDisplay');
+          const menuCalibrate = document.getElementById('menuStatsCalibrate');
+          
+          if (isCalibrated) {
+            menuEloDisplay.style.display = 'block';
+            menuCalibrate.style.display = 'none';
+            document.getElementById('menuStatsElo').textContent = currentUser.rating || 1000;
+          } else {
+            menuEloDisplay.style.display = 'none';
+            menuCalibrate.style.display = 'block';
+          }
+          
           document.getElementById('menuStatsGamesPlayed').textContent = userStats.stats.gamesPlayed || 0;
           document.getElementById('menuStatsWins').textContent = userStats.stats.wins || 0;
           document.getElementById('menuStatsLosses').textContent = userStats.stats.losses || 0;
@@ -4981,6 +5177,35 @@
       }
     }
     
+    function goToCalibration() {
+      // Close settings/menu panels
+      toggleSettingsPanel();
+      const sidePanel = document.getElementById('userSidePanel');
+      if (sidePanel) sidePanel.style.display = 'none';
+      
+      // Navigate to multiplayer setup
+      showMultiplayerSetup();
+      
+      // The calibration banner will be visible automatically
+      // since checkCalibrationStatus() is called in showMultiplayerSetup()
+    }
+    
+    function goToCalibration() {
+      // Close user menu
+      toggleUserMenu();
+      
+      // Navigate to multiplayer then trigger calibration
+      showMultiplayerSetup();
+      
+      // Trigger calibration banner if showing
+      const calibrationBanner = document.getElementById('calibrationBanner');
+      if (calibrationBanner && calibrationBanner.style.display !== 'none') {
+        // Banner is visible, user can click "Start Calibration" button
+        // Scroll to it
+        calibrationBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+    
     function startCalibration() {
       // Hide multiplayer setup, show calibration screen
       document.getElementById('multiplayerSetup').style.display = 'none';
@@ -5362,9 +5587,15 @@
       showLoading();
       document.getElementById('deviceSelection').style.display = 'none';
       
-      // Check calibration status first
+      // Check calibration status first (only for logged in users)
       if (currentUser) {
         await checkCalibrationStatus();
+      } else {
+        // For non-logged-in users, always show ranked toggle
+        const rankedToggle = document.getElementById('rankedToggle');
+        if (rankedToggle) {
+          rankedToggle.style.display = 'block';
+        }
       }
       
       // Check for rejoinable game first
