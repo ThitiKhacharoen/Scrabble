@@ -1544,6 +1544,12 @@
         
         <!-- Stats Content (Collapsible) -->
         <div id="statsContent" style="display: none; padding: 15px; background: white; border-radius: 0 0 10px 10px; margin-top: 2px;">
+          <!-- ELO Rating (Prominent) -->
+          <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 15px;">
+            <div id="menuStatsElo" style="font-size: 32px; font-weight: 700; color: white;">1000</div>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 600;">ELO RATING</div>
+          </div>
+          
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
             <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
               <div id="menuStatsGamesPlayed" style="font-size: 20px; font-weight: 600; color: var(--accent);">0</div>
@@ -1785,6 +1791,12 @@
           </div>
           <h3 id="profileUsername" style="margin: 0 0 5px 0;">Username</h3>
           <p id="profileEmail" style="margin: 0; color: #7f8c8d; font-size: 14px;"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8eebe3efe7e2ceebf6efe3fee2eba0ede1e3">[email&#160;protected]</a></p>
+        </div>
+        
+        <!-- ELO Rating (Prominent) -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+          <div style="font-size: 14px; color: rgba(255,255,255,0.9); font-weight: 600; margin-bottom: 8px;">ELO RATING</div>
+          <div style="font-size: 48px; font-weight: 700; color: white;" id="statsEloRating">1000</div>
         </div>
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
@@ -2764,7 +2776,7 @@
               <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Set Your ELO</div>
               <div style="font-size: 12px; opacity: 0.9; margin-bottom: 12px;">Test matchmaking at different ratings</div>
               <div style="display: flex; gap: 8px;">
-                <input type="number" id="adminEloInput" placeholder="1000-2000" min="800" max="2200" value="1500" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 13px;">
+                <input type="number" id="adminEloInput" placeholder="Any rating" min="0" max="9999" value="1500" style="flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 13px;">
                 <button onclick="adminSetOwnElo()" style="padding: 8px 16px; background: white; color: #667eea; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
                   Set
                 </button>
@@ -3524,8 +3536,8 @@
     async function adminSetOwnElo() {
       const rating = parseInt(document.getElementById('adminEloInput').value);
       
-      if (isNaN(rating) || rating < 800 || rating > 2200) {
-        alert('Please enter a rating between 800 and 2200');
+      if (isNaN(rating) || rating < 0) {
+        alert('Please enter a valid rating (0 or higher)');
         return;
       }
       
@@ -3656,15 +3668,15 @@
       if (!selectedCalibrationUser) return;
       
       const newRating = prompt(
-        `Set ELO for ${selectedCalibrationUser.display_name}\n\nCurrent: ${selectedCalibrationUser.rating || 1000}\n\nEnter new rating (800-2200):`,
+        `Set ELO for ${selectedCalibrationUser.display_name}\n\nCurrent: ${selectedCalibrationUser.rating || 1000}\n\nEnter new rating:`,
         selectedCalibrationUser.rating || 1000
       );
       
       if (!newRating) return;
       
       const rating = parseInt(newRating);
-      if (isNaN(rating) || rating < 800 || rating > 2200) {
-        alert('Invalid rating. Must be between 800 and 2200.');
+      if (isNaN(rating) || rating < 0) {
+        alert('Invalid rating. Must be 0 or higher.');
         return;
       }
       
@@ -3980,6 +3992,9 @@
       document.getElementById('profileUsername').textContent = displayName;
       document.getElementById('profileEmail').textContent = currentUser.email;
       
+      // ELO Rating
+      document.getElementById('statsEloRating').textContent = currentUser.rating || 1000;
+      
       const stats = userStats.stats;
       document.getElementById('statsGamesPlayed').textContent = stats.gamesPlayed || 0;
       document.getElementById('statsWins').textContent = stats.wins || 0;
@@ -4031,6 +4046,7 @@
         
         // Update stats in expandable section
         if (userStats && userStats.stats) {
+          document.getElementById('menuStatsElo').textContent = currentUser.rating || 1000;
           document.getElementById('menuStatsGamesPlayed').textContent = userStats.stats.gamesPlayed || 0;
           document.getElementById('menuStatsWins').textContent = userStats.stats.wins || 0;
           document.getElementById('menuStatsLosses').textContent = userStats.stats.losses || 0;
@@ -4608,7 +4624,7 @@
       {
         id: 1,
         name: 'Bot 1',
-        rating: 800,
+        rating: 300,
         stars: 1,
         strategy: 'Random word placement, no strategy',
         behavior: 'random',
@@ -4617,7 +4633,7 @@
       {
         id: 2,
         name: 'Bot 2',
-        rating: 1200,
+        rating: 600,
         stars: 2,
         strategy: 'Always seeks double/triple word scores',
         behavior: 'bonus_hunter',
@@ -4626,7 +4642,7 @@
       {
         id: 3,
         name: 'Bot 3',
-        rating: 1500,
+        rating: 900,
         stars: 3,
         strategy: 'Prefers long words (5+ letters)',
         behavior: 'word_wizard',
@@ -4635,7 +4651,7 @@
       {
         id: 4,
         name: 'Bot 4',
-        rating: 1600,
+        rating: 1200,
         stars: 3,
         strategy: 'Holds tiles for better opportunities',
         behavior: 'patient',
@@ -4644,7 +4660,7 @@
       {
         id: 5,
         name: 'Bot 5',
-        rating: 1800,
+        rating: 1500,
         stars: 4,
         strategy: 'Balanced approach, considers all factors',
         behavior: 'opportunist',
@@ -4653,7 +4669,7 @@
       {
         id: 6,
         name: 'Bot 6',
-        rating: 2000,
+        rating: 1800,
         stars: 4,
         strategy: 'Blocks opponent, opens bonuses strategically',
         behavior: 'tactical',
@@ -4662,7 +4678,7 @@
       {
         id: 7,
         name: 'Bot 7',
-        rating: 2200,
+        rating: 2100,
         stars: 5,
         strategy: '2-move lookahead, tournament level',
         behavior: 'master',
@@ -5061,8 +5077,8 @@
       // Weighted average
       const rating = Math.round(resultRating * 0.3 + efficiencyRating * 0.7);
       
-      // Clamp between 800-2000
-      return Math.max(800, Math.min(2000, rating));
+      // No clamp - allow any rating
+      return rating;
     }
     
     async function findBestMoveForPosition(board, rack) {
