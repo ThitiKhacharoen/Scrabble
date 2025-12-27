@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.4</title>
-  <!-- Version: 3.0.4 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
+  <title>Scrabble Game v3.0.5</title>
+  <!-- Version: 3.0.5 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
   <!-- Cache Buster: 20251227-0002 -->
   
   <!-- PWA Meta Tags -->
@@ -4804,6 +4804,7 @@
     let currentPlayerIndex = 0; // Index in lobbyPlayers array for current turn
     let myOnlineName = 'Player';
     let startingPlayer = null; // Will be randomized
+    let isPeerOnlyMode = false; // True if game is running without database
 
     // Sound Effects System
     const SFX = {
@@ -5793,13 +5794,17 @@
       };
       lobbyPlayers.push(newPlayer);
       
+      // Check if we're in peer-only mode
+      const isPeerOnlyMode = currentGameId && currentGameId.startsWith('peer_');
+      
       // Send success to joiner
       connections[peerId].send({
         type: 'join_success',
         gameId: currentGameId,
         playerId: playerData.id,
         playerOrder: playerData.player_order,
-        players: lobbyPlayers
+        players: lobbyPlayers,
+        isPeerOnly: isPeerOnlyMode
       });
       
       // Broadcast updated player list to all
@@ -5855,6 +5860,24 @@
         return;
       }
       
+      // Show warning if in peer-only mode
+      if (isPeerOnlyMode) {
+        const confirmed = confirm(
+          '⚠️ PEER-ONLY MODE\n\n' +
+          'This game will run WITHOUT database connection.\n\n' +
+          '❌ No game stats will be saved\n' +
+          '❌ No ELO changes will be recorded\n' +
+          '❌ No game history\n\n' +
+          '✅ You can still play normally\n' +
+          '✅ All game features work\n\n' +
+          'Continue with peer-only game?'
+        );
+        
+        if (!confirmed) {
+          return; // Don't start the game
+        }
+      }
+      
       // Update game status
       await updateGameStatus('playing');
       
@@ -5866,7 +5889,8 @@
       const startMessage = {
         type: 'game_start',
         players: lobbyPlayers,
-        startingPlayerOrder: lobbyPlayers[randomIndex].order
+        startingPlayerOrder: lobbyPlayers[randomIndex].order,
+        isPeerOnly: isPeerOnlyMode
       };
       
       broadcastToAllPlayers(startMessage);
@@ -6055,6 +6079,15 @@
             playerName: myOnlineName,
             peerId: myPeerId
           });
+          
+          // Add timeout - if no response in 10 seconds, show error
+          const joinTimeout = setTimeout(() => {
+            console.error('⏱️ Join timeout - no response from host');
+            document.getElementById('joinStatus').innerHTML = '<div style="color: #ff6b6b;">❌ No response from host. They may have closed the game.</div>';
+          }, 10000);
+          
+          // Clear timeout on successful join (in handleJoinerMessage)
+          conn.joinTimeout = joinTimeout;
         });
         
         conn.on('error', (err) => {
@@ -6074,6 +6107,17 @@
       
       switch (data.type) {
         case 'join_success':
+          // Clear join timeout
+          const hostConn = connections[myGameCode];
+          if (hostConn && hostConn.joinTimeout) {
+            clearTimeout(hostConn.joinTimeout);
+          }
+          
+          // Check if peer-only mode
+          if (data.isPeerOnly) {
+            isPeerOnlyMode = true;
+          }
+          
           // Successfully joined lobby
           currentGameId = data.gameId;
           myPlayerId = data.playerId;
@@ -6107,6 +6151,12 @@
           // Game is starting
           lobbyPlayers = data.players;
           currentPlayerIndex = lobbyPlayers.findIndex(p => p.order === data.startingPlayerOrder);
+          
+          // Update peer-only mode flag
+          if (data.isPeerOnly) {
+            isPeerOnlyMode = true;
+          }
+          
           startMultiplayerGame();
           break;
           
@@ -8791,24 +8841,35 @@
     
     async function createGameRecordV2() {
       try {
-        // Create game record
+        // Try creating game record in database
         const { data: gameData, error: gameError } = await window.supabase
           .from('online_games')
           .insert({
             game_code: myGameCode,
             host_id: currentUser ? currentUser.id : null,
             status: 'waiting',
-            max_players: 4
+            max_players: 4,
+            ranked: currentGameType === 'ranked'
           })
           .select()
           .single();
         
-        if (gameError) throw gameError;
+        if (gameError) {
+          console.error('❌ Database error creating game:', gameError);
+          console.log('⚠️ Continuing in peer-only mode (no database)');
+          
+          // FALLBACK: Generate fake game ID for peer-only mode
+          currentGameId = 'peer_' + myGameCode;
+          myPlayerId = 'peer_host_' + myGameCode;
+          isPeerOnlyMode = true;
+          
+          console.log('✅ Game created (peer-only):', currentGameId);
+          return currentGameId;
+        }
         
         currentGameId = gameData.id;
-        myPlayerId = gameData.id + '-host'; // Temporary ID for host
         
-        // Add host as first player
+        // Try adding host as first player
         const { data: playerData, error: playerError } = await window.supabase
           .from('game_players')
           .insert({
@@ -8822,15 +8883,25 @@
           .select()
           .single();
         
-        if (playerError) throw playerError;
+        if (playerError) {
+          console.error('❌ Database error adding host player:', playerError);
+          myPlayerId = 'peer_host_' + currentGameId;
+        } else {
+          myPlayerId = playerData.id;
+        }
         
-        myPlayerId = playerData.id;
         console.log('✅ Game created:', currentGameId, 'Player ID:', myPlayerId);
         return currentGameId;
       } catch (error) {
-        console.error('Error creating game:', error);
-        document.getElementById('connectionStatus').innerHTML = '<div style="color: #ff6b6b;">❌ Database error. Please try again.</div>';
-        return null;
+        console.error('❌ Unexpected error creating game:', error);
+        
+        // FALLBACK: Peer-only mode
+        currentGameId = 'peer_' + myGameCode;
+        myPlayerId = 'peer_host_' + myGameCode;
+        isPeerOnlyMode = true;
+        
+        console.log('✅ Game created (peer-only fallback):', currentGameId);
+        return currentGameId;
       }
     }
     
@@ -8844,7 +8915,10 @@
           .order('player_order', { ascending: false })
           .limit(1);
         
-        if (countError) throw countError;
+        if (countError) {
+          console.error('Error fetching player count:', countError);
+          throw countError;
+        }
         
         const nextOrder = players && players.length > 0 ? players[0].player_order + 1 : 1;
         
@@ -8867,13 +8941,28 @@
           .select()
           .single();
         
-        if (playerError) throw playerError;
+        if (playerError) {
+          console.error('Error inserting player:', playerError);
+          throw playerError;
+        }
         
-        console.log('✅ Player added:', playerData);
+        console.log('✅ Player added to database:', playerData);
         return playerData;
       } catch (error) {
-        console.error('Error adding player:', error);
-        return null;
+        console.error('❌ Database error in addPlayerToGame:', error);
+        console.log('⚠️ Falling back to peer-only mode (no database)');
+        
+        // FALLBACK: Create a fake player data object for peer-only mode
+        // This allows the game to work even if database fails
+        const fallbackPlayerData = {
+          id: 'peer_' + peerId, // Fake ID
+          player_order: lobbyPlayers.length + 1,
+          player_name: playerName,
+          peer_id: peerId
+        };
+        
+        console.log('✅ Player added (peer-only mode):', fallbackPlayerData);
+        return fallbackPlayerData;
       }
     }
     
@@ -8894,6 +8983,12 @@
     }
     
     async function updateGameStatus(status) {
+      // Skip database updates for peer-only games
+      if (currentGameId && currentGameId.startsWith('peer_')) {
+        console.log('⚠️ Peer-only mode - skipping game status update');
+        return;
+      }
+      
       try {
         const updates = { status };
         if (status === 'playing') {
@@ -8910,7 +9005,8 @@
         if (error) throw error;
         console.log('✅ Game status updated:', status);
       } catch (error) {
-        console.error('Error updating game status:', error);
+        console.error('❌ Error updating game status:', error);
+        console.log('⚠️ Continuing in peer-only mode');
       }
     }
     
