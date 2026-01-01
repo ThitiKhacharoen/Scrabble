@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.5</title>
-  <!-- Version: 3.0.5 | Date: December 27, 2025 | PATCH: UX improvements & loading spinner -->
-  <!-- Cache Buster: 20251227-0002 -->
+  <title>Scrabble Game v3.0.6</title>
+  <!-- Version: 3.0.6 | Date: January 1, 2026 | PATCH: Mobile responsive viewport-based sizing -->
+  <!-- Cache Buster: 20260101-0001 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -46,6 +46,13 @@
       color: var(--text-dark);
     }
 
+    /* Mobile-first responsive adjustments */
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+    }
+
     h1 {
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 3.5rem;
@@ -55,12 +62,38 @@
       text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
 
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.8rem;
+        letter-spacing: 1px;
+        margin-bottom: 5px;
+      }
+    }
+
     .game-container {
       max-width: 1400px;
       width: 100%;
       display: flex;
       flex-direction: column;
       gap: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .game-container {
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .game-container {
+        gap: 15px;
+      }
     }
 
     .scores {
@@ -78,6 +111,18 @@
       transition: all 0.3s ease;
       text-align: center;
       border: 3px solid transparent;
+    }
+
+    @media (max-width: 768px) {
+      .score-card {
+        padding: 15px 30px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .score-card {
+        padding: 10px 20px;
+      }
     }
 
     .score-card.active {
@@ -105,6 +150,18 @@
       transition: all 0.3s ease;
     }
 
+    @media (max-width: 768px) {
+      .score-value {
+        font-size: 2rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .score-value {
+        font-size: 1.5rem;
+      }
+    }
+
     .score-card.active .score-value {
       animation: letterPulse 1.5s ease-in-out infinite;
     }
@@ -127,6 +184,26 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     }
 
+    /* Tablet: scale down proportionally */
+    @media (max-width: 768px) {
+      .board {
+        grid-template-columns: repeat(15, 5.2vw);
+        grid-template-rows: repeat(15, 5.2vw);
+        gap: 0.15vw;
+        padding: 1vw;
+      }
+    }
+
+    /* Mobile: maximize screen usage */
+    @media (max-width: 480px) {
+      .board {
+        grid-template-columns: repeat(15, 6vw);
+        grid-template-rows: repeat(15, 6vw);
+        gap: 0.2vw;
+        padding: 1.2vw;
+      }
+    }
+
     .cell {
       width: 40px;
       height: 40px;
@@ -142,6 +219,22 @@
       border-radius: 2px;
       color: rgba(0, 0, 0, 0.3); /* Default text color for empty cells */
       border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .cell {
+        width: 5.2vw;
+        height: 5.2vw;
+        font-size: 0.55rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .cell {
+        width: 6vw;
+        height: 6vw;
+        font-size: 0.45rem;
+      }
     }
 
     .cell:hover:not(.occupied) {
@@ -206,6 +299,22 @@
       color: #2c3e50; /* Default dark text for tiles */
     }
 
+    @media (max-width: 768px) {
+      .tile {
+        width: calc(5.2vw - 2px);
+        height: calc(5.2vw - 2px);
+        font-size: 1.2rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tile {
+        width: calc(6vw - 2px);
+        height: calc(6vw - 2px);
+        font-size: 1rem;
+      }
+    }
+
     .tile .points {
       position: absolute;
       bottom: 2px;
@@ -214,6 +323,22 @@
       font-family: Georgia, 'Times New Roman', serif;
       opacity: 0.7;
       color: inherit; /* Inherit from tile */
+    }
+
+    @media (max-width: 768px) {
+      .tile .points {
+        font-size: 0.55rem;
+        bottom: 1px;
+        right: 2px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tile .points {
+        font-size: 0.45rem;
+        bottom: 1px;
+        right: 1px;
+      }
     }
 
     .rack-container {
@@ -233,6 +358,22 @@
       min-height: 60px;
     }
 
+    @media (max-width: 768px) {
+      .rack {
+        padding: 10px;
+        gap: 6px;
+        min-height: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .rack {
+        padding: 8px;
+        gap: 4px;
+        min-height: auto;
+      }
+    }
+
     .rack-tile {
       width: 45px;
       height: 45px;
@@ -249,6 +390,22 @@
       transition: all 0.2s ease;
       position: relative;
       user-select: none;
+    }
+
+    @media (max-width: 768px) {
+      .rack-tile {
+        width: 6vw;
+        height: 6vw;
+        font-size: 1.4rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .rack-tile {
+        width: 11vw;
+        height: 11vw;
+        font-size: 1.2rem;
+      }
     }
 
     .rack-tile:hover {
