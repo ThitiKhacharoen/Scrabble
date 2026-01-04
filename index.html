@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.6</title>
-  <!-- Version: 3.0.6 | Date: January 1, 2026 | PATCH: Mobile responsive viewport-based sizing -->
-  <!-- Cache Buster: 20260101-0001 -->
+  <title>Scrabble Game v3.0.7</title>
+  <!-- Version: 3.0.7 | Date: January 4, 2026 | PATCH: Fixed mobile borders & centering -->
+  <!-- Cache Buster: 20260104-0001 -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -189,17 +189,17 @@
       .board {
         grid-template-columns: repeat(15, 5.2vw);
         grid-template-rows: repeat(15, 5.2vw);
-        gap: 0.15vw;
+        gap: 0.2vw;
         padding: 1vw;
       }
     }
 
-    /* Mobile: maximize screen usage */
+    /* Mobile: maximize screen usage with better gap for borders */
     @media (max-width: 480px) {
       .board {
         grid-template-columns: repeat(15, 6vw);
         grid-template-rows: repeat(15, 6vw);
-        gap: 0.2vw;
+        gap: 0.3vw;
         padding: 1.2vw;
       }
     }
@@ -213,6 +213,7 @@
       justify-content: center;
       place-items: center;
       text-align: center;
+      line-height: 40px;
       font-size: 0.65rem;
       font-weight: 600;
       cursor: pointer;
@@ -227,7 +228,9 @@
       .cell {
         width: 5.2vw;
         height: 5.2vw;
+        line-height: 5.2vw;
         font-size: 0.55rem;
+        border-width: 0.15vw;
       }
     }
 
@@ -235,7 +238,9 @@
       .cell {
         width: 6vw;
         height: 6vw;
+        line-height: 6vw;
         font-size: 0.45rem;
+        border-width: 0.2vw;
       }
     }
 
@@ -292,7 +297,7 @@
       justify-content: center;
       place-items: center;
       text-align: center;
-      margin: auto;
+      line-height: 38px;
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 1.4rem;
       font-weight: 700;
@@ -308,6 +313,7 @@
       .tile {
         width: calc(5.2vw - 2px);
         height: calc(5.2vw - 2px);
+        line-height: calc(5.2vw - 2px);
         font-size: 1.2rem;
       }
     }
@@ -316,6 +322,7 @@
       .tile {
         width: calc(6vw - 2px);
         height: calc(6vw - 2px);
+        line-height: calc(6vw - 2px);
         font-size: 1rem;
       }
     }
@@ -388,7 +395,7 @@
       justify-content: center;
       place-items: center;
       text-align: center;
-      margin: auto;
+      line-height: 45px;
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 1.6rem;
       font-weight: 700;
@@ -404,6 +411,7 @@
       .rack-tile {
         width: 6vw;
         height: 6vw;
+        line-height: 6vw;
         font-size: 1.4rem;
       }
     }
@@ -412,6 +420,7 @@
       .rack-tile {
         width: 11vw;
         height: 11vw;
+        line-height: 11vw;
         font-size: 1.2rem;
       }
     }
