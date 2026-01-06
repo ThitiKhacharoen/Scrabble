@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Scrabble Game v3.0.7</title>
-  <!-- Version: 3.0.7 | Date: January 4, 2026 | PATCH: Fixed mobile borders & centering -->
-  <!-- Cache Buster: 20260104-0001 -->
+  <!-- Version: 3.0.7 | Date: January 4, 2026 | PATCH: Fixed validation hang + comprehensive debug logging -->
+  <!-- Cache Buster: 20260104-0003 -->
+  <!-- Debug: All functions log with 🔧 (class methods) or 🌐 (global functions) -->
+  <!-- Debug: validateWord logs with 🔍, ✅, ❌, 📦, 🌐, ⚠️ emoji prefixes -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -46,7 +48,6 @@
       color: var(--text-dark);
     }
 
-    /* Mobile-first responsive adjustments */
     @media (max-width: 480px) {
       body {
         padding: 10px;
@@ -72,7 +73,6 @@
       h1 {
         font-size: 1.8rem;
         letter-spacing: 1px;
-        margin-bottom: 5px;
       }
     }
 
@@ -82,18 +82,6 @@
       display: flex;
       flex-direction: column;
       gap: 30px;
-    }
-
-    @media (max-width: 768px) {
-      .game-container {
-        gap: 20px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .game-container {
-        gap: 15px;
-      }
     }
 
     .scores {
@@ -113,15 +101,9 @@
       border: 3px solid transparent;
     }
 
-    @media (max-width: 768px) {
-      .score-card {
-        padding: 15px 30px;
-      }
-    }
-
     @media (max-width: 480px) {
       .score-card {
-        padding: 10px 20px;
+        padding: 15px 30px;
       }
     }
 
@@ -150,15 +132,9 @@
       transition: all 0.3s ease;
     }
 
-    @media (max-width: 768px) {
-      .score-value {
-        font-size: 2rem;
-      }
-    }
-
     @media (max-width: 480px) {
       .score-value {
-        font-size: 1.5rem;
+        font-size: 2rem;
       }
     }
 
@@ -173,6 +149,21 @@
       flex-wrap: wrap;
     }
 
+    /* Mobile: scale down the entire board */
+    @media (max-width: 768px) {
+      .board-container {
+        transform: scale(0.85);
+        transform-origin: top center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .board-container {
+        transform: scale(0.6);
+        transform-origin: top center;
+      }
+    }
+
     .board {
       display: grid;
       grid-template-columns: repeat(15, 40px);
@@ -184,26 +175,6 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     }
 
-    /* Tablet: scale down proportionally */
-    @media (max-width: 768px) {
-      .board {
-        grid-template-columns: repeat(15, 5.2vw);
-        grid-template-rows: repeat(15, 5.2vw);
-        gap: 0.2vw;
-        padding: 1vw;
-      }
-    }
-
-    /* Mobile: maximize screen usage with better gap for borders */
-    @media (max-width: 480px) {
-      .board {
-        grid-template-columns: repeat(15, 6vw);
-        grid-template-rows: repeat(15, 6vw);
-        gap: 0.3vw;
-        padding: 1.2vw;
-      }
-    }
-
     .cell {
       width: 40px;
       height: 40px;
@@ -211,9 +182,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      place-items: center;
-      text-align: center;
-      line-height: 40px;
       font-size: 0.65rem;
       font-weight: 600;
       cursor: pointer;
@@ -221,27 +189,7 @@
       position: relative;
       border-radius: 2px;
       color: rgba(0, 0, 0, 0.3); /* Default text color for empty cells */
-      border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    @media (max-width: 768px) {
-      .cell {
-        width: 5.2vw;
-        height: 5.2vw;
-        line-height: 5.2vw;
-        font-size: 0.55rem;
-        border-width: 0.15vw;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .cell {
-        width: 6vw;
-        height: 6vw;
-        line-height: 6vw;
-        font-size: 0.45rem;
-        border-width: 0.2vw;
-      }
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
     }
 
     .cell:hover:not(.occupied) {
@@ -295,9 +243,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      place-items: center;
-      text-align: center;
-      line-height: 38px;
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 1.4rem;
       font-weight: 700;
@@ -309,24 +254,6 @@
       color: #2c3e50; /* Default dark text for tiles */
     }
 
-    @media (max-width: 768px) {
-      .tile {
-        width: calc(5.2vw - 2px);
-        height: calc(5.2vw - 2px);
-        line-height: calc(5.2vw - 2px);
-        font-size: 1.2rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .tile {
-        width: calc(6vw - 2px);
-        height: calc(6vw - 2px);
-        line-height: calc(6vw - 2px);
-        font-size: 1rem;
-      }
-    }
-
     .tile .points {
       position: absolute;
       bottom: 2px;
@@ -335,22 +262,6 @@
       font-family: Georgia, 'Times New Roman', serif;
       opacity: 0.7;
       color: inherit; /* Inherit from tile */
-    }
-
-    @media (max-width: 768px) {
-      .tile .points {
-        font-size: 0.55rem;
-        bottom: 1px;
-        right: 2px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .tile .points {
-        font-size: 0.45rem;
-        bottom: 1px;
-        right: 1px;
-      }
     }
 
     .rack-container {
@@ -370,22 +281,6 @@
       min-height: 60px;
     }
 
-    @media (max-width: 768px) {
-      .rack {
-        padding: 10px;
-        gap: 6px;
-        min-height: 50px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .rack {
-        padding: 8px;
-        gap: 4px;
-        min-height: auto;
-      }
-    }
-
     .rack-tile {
       width: 45px;
       height: 45px;
@@ -393,9 +288,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      place-items: center;
-      text-align: center;
-      line-height: 45px;
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 1.6rem;
       font-weight: 700;
@@ -405,24 +297,6 @@
       transition: all 0.2s ease;
       position: relative;
       user-select: none;
-    }
-
-    @media (max-width: 768px) {
-      .rack-tile {
-        width: 6vw;
-        height: 6vw;
-        line-height: 6vw;
-        font-size: 1.4rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .rack-tile {
-        width: 11vw;
-        height: 11vw;
-        line-height: 11vw;
-        font-size: 1.2rem;
-      }
     }
 
     .rack-tile:hover {
@@ -3262,6 +3136,7 @@
     // ============================================
     
     async function signInWithGoogle() {
+      console.log('🌐 signInWithGoogle()');
       try {
         console.log('🔐 Starting Google sign in...');
         
@@ -3309,6 +3184,7 @@
     // ============================================
     
     function openAdminDashboard() {
+      console.log('🌐 openAdminDashboard()');
       // Check if user has admin permissions
       if (!currentUser || !['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
         alert('Access denied. Admin permissions required.');
@@ -3336,6 +3212,7 @@
     }
     
     function exitAdminDashboard() {
+      console.log('🌐 exitAdminDashboard()');
       window.location.hash = '';
       document.getElementById('adminDashboard').style.display = 'none';
       
@@ -3345,6 +3222,7 @@
     }
     
     function switchAdminTab(tab) {
+      console.log('🌐 switchAdminTab()', { tab });
       // Update tab buttons
       const tabs = ['users', 'bans', 'warnings', 'admins', 'calibration'];
       tabs.forEach(t => {
@@ -3371,6 +3249,7 @@
     }
     
     async function loadAdminStats() {
+      console.log('🌐 loadAdminStats()');
       try {
         // Total users
         const { count: totalUsers } = await window.supabase
@@ -3404,6 +3283,7 @@
     }
     
     async function loadAdminUsers() {
+      console.log('🌐 loadAdminUsers()');
       try {
         const { data: users, error } = await window.supabase
           .from('users')
@@ -3454,6 +3334,7 @@
     }
     
     async function loadAdminBans() {
+      console.log('🌐 loadAdminBans()');
       try {
         const { data: bans, error } = await window.supabase
           .from('bans')
@@ -3536,6 +3417,7 @@
     }
     
     async function loadAdminWarnings() {
+      console.log('🌐 loadAdminWarnings()');
       try {
         // Try to load warnings - if table doesn't exist, show friendly message
         const { data: warnings, error } = await window.supabase
@@ -3613,6 +3495,7 @@
     }
     
     function filterAdminUsers() {
+      console.log('🌐 filterAdminUsers()');
       const input = document.getElementById('userSearchInput').value.toLowerCase();
       const table = document.getElementById('usersTable');
       const rows = table.getElementsByTagName('tr');
@@ -3625,6 +3508,7 @@
     }
     
     function filterAdmins() {
+      console.log('🌐 filterAdmins()');
       const input = document.getElementById('adminSearchInput').value.toLowerCase();
       const table = document.getElementById('adminsTable');
       const rows = table.getElementsByTagName('tr');
@@ -3637,6 +3521,7 @@
     }
     
     async function loadAdmins() {
+      console.log('🌐 loadAdmins()');
       try {
         const { data: admins, error } = await window.supabase
           .from('users')
@@ -3690,6 +3575,7 @@
     }
     
     async function changeUserRole(userId, newRole) {
+      console.log('🌐 changeUserRole()', { userId, newRole });
       if (!confirm(`Are you sure you want to change this user's role to "${newRole}"?`)) return;
       
       try {
@@ -3709,11 +3595,13 @@
     }
     
     function showUserActions(userId) {
+      console.log('🌐 showUserActions()', { userId });
       // For now, just alert. We'll add a proper modal later if needed
       alert('User actions for: ' + userId + '\n\nFeatures:\n- Warn user\n- Ban user\n- Change role\n\nComing soon!');
     }
     
     async function unbanUser(userId) {
+      console.log('🌐 unbanUser()', { userId });
       if (!confirm('Are you sure you want to unban this user?')) return;
       
       try {
@@ -3741,6 +3629,7 @@
     let selectedCalibrationUser = null;
     
     async function loadCalibrationStats() {
+      console.log('🌐 loadCalibrationStats()');
       showLoading();
       try {
         // Pending calibration
@@ -3780,6 +3669,7 @@
     }
     
     async function adminSkipOwnCalibration() {
+      console.log('🌐 adminSkipOwnCalibration()');
       if (!confirm('Skip your own calibration?\n\nThis will mark you as calibrated with rating 1500.')) {
         return;
       }
@@ -3811,6 +3701,7 @@
     }
     
     async function adminSetOwnElo() {
+      console.log('🌐 adminSetOwnElo()');
       const rating = parseInt(document.getElementById('adminEloInput').value);
       
       if (isNaN(rating) || rating < 0) {
@@ -3852,6 +3743,7 @@
     }
     
     async function adminResetToLastRanked() {
+      console.log('🌐 adminResetToLastRanked()');
       if (!currentUser) return;
       
       // Only admins can reset
@@ -3909,6 +3801,7 @@
     }
     
     async function adminResetAllAdmins() {
+      console.log('🌐 adminResetAllAdmins()');
       if (!confirm('⚠️ Reset ALL admins to uncalibrated?\n\nThis will:\n- Clear calibration status\n- Reset games played to 0\n- Set rating to 1000\n- Clear calibrated_rating\n- Clear last_ranked_rating\n- Delete calibration game records\n\nAffects all users with admin, super_admin, or owner role.\n\nContinue?')) {
         return;
       }
@@ -3985,6 +3878,7 @@
     }
     
     function updateResetButtonState() {
+      console.log('🌐 updateResetButtonState()');
       const descEl = document.getElementById('resetEloDesc');
       
       if (!currentUser) {
@@ -4008,6 +3902,7 @@
     }
     
     async function resetAllAdminsCalibration() {
+      console.log('🌐 resetAllAdminsCalibration()');
       if (!confirm('⚠️ Reset ALL admins calibration?\n\nThis will:\n• Set all admins back to pending calibration\n• Reset their ratings to 1000\n• Clear calibration history\n• Delete calibration game records\n\nThis affects ALL users with admin/super_admin/owner roles.\n\nContinue?')) {
         return;
       }
@@ -4072,6 +3967,7 @@
     }
     
     async function searchUserForCalibration() {
+      console.log('🌐 searchUserForCalibration()');
       const email = document.getElementById('calibrationUserEmail').value.trim();
       
       if (!email) {
@@ -4111,6 +4007,7 @@
     }
     
     async function resetUserCalibration() {
+      console.log('🌐 resetUserCalibration()');
       if (!selectedCalibrationUser) return;
       
       if (!confirm(`Reset calibration for ${selectedCalibrationUser.display_name}?\n\nThis will set them back to pending status.`)) {
@@ -4145,6 +4042,7 @@
     }
     
     async function completeUserCalibration() {
+      console.log('🌐 completeUserCalibration()');
       if (!selectedCalibrationUser) return;
       
       if (!confirm(`Mark calibration as complete for ${selectedCalibrationUser.display_name}?`)) {
@@ -4172,6 +4070,7 @@
     }
     
     function showSetUserEloModal() {
+      console.log('🌐 showSetUserEloModal()');
       if (!selectedCalibrationUser) return;
       
       const newRating = prompt(
@@ -4191,6 +4090,7 @@
     }
     
     async function setUserElo(rating) {
+      console.log('🌐 setUserElo()', { rating });
       if (!selectedCalibrationUser) return;
       
       try {
@@ -4223,6 +4123,7 @@
     });
     
     async function handleAuthChange(session) {
+      console.log('🌐 handleAuthChange()', { session });
       currentUser = session.user;
       await loadUserData(); // Wait for user data to load
       
@@ -4272,12 +4173,14 @@
     }
     
     function showAuthInterface() {
+      console.log('🌐 showAuthInterface()');
       document.getElementById('authContainer').style.display = 'flex';
       document.getElementById('modeSelection').style.display = 'none';
       document.getElementById('settingsBtn').style.display = 'none';
     }
     
     function showGameInterface() {
+      console.log('🌐 showGameInterface()');
       document.getElementById('authContainer').style.display = 'none';
       document.getElementById('modeSelection').style.display = 'flex';
       
@@ -4295,6 +4198,7 @@
     }
     
     function playAnonymously() {
+      console.log('🌐 playAnonymously()');
       isAnonymousMode = true;
       currentUser = null;
       userStats = null;
@@ -4308,6 +4212,7 @@
     }
     
     function showLogin() {
+      console.log('🌐 showLogin()');
       document.getElementById('loginScreen').style.display = 'block';
       document.getElementById('signupScreen').style.display = 'none';
       document.getElementById('forgotPasswordScreen').style.display = 'none';
@@ -4316,6 +4221,7 @@
     }
     
     function showSignup() {
+      console.log('🌐 showSignup()');
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('signupScreen').style.display = 'block';
       document.getElementById('forgotPasswordScreen').style.display = 'none';
@@ -4324,6 +4230,7 @@
     }
     
     function showForgotPassword() {
+      console.log('🌐 showForgotPassword()');
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('signupScreen').style.display = 'none';
       document.getElementById('forgotPasswordScreen').style.display = 'block';
@@ -4332,6 +4239,7 @@
     
     // v1.4.2: Toggle password visibility
     function togglePasswordVisibility(inputId) {
+      console.log('🌐 togglePasswordVisibility()', { inputId });
       const input = document.getElementById(inputId);
       const button = input.nextElementSibling;
       
@@ -4353,6 +4261,7 @@
 
     
     async function handleLogout() {
+      console.log('🌐 handleLogout()');
       try {
         // Close user panel first
         const panel = document.getElementById('userSidePanel');
@@ -4373,6 +4282,7 @@
     // v1.5.0: Supabase - No separate createUserDocument needed, done in handleSignup
     
     async function loadUserData() {
+      console.log('🌐 loadUserData()');
       try {
         // Load user data from Supabase
         const { data: userData, error } = await window.supabase
@@ -4493,6 +4403,7 @@
     }
     
     function updateProfileDisplay() {
+      console.log('🌐 updateProfileDisplay()');
       if (!currentUser || !userStats) return;
       
       const displayName = currentUser.display_name || currentUser.user_metadata?.full_name || currentUser.email.split('@')[0];
@@ -4541,6 +4452,7 @@
     
     // User Side Panel Functions
     function toggleUserPanel() {
+      console.log('🌐 toggleUserPanel()');
       const panel = document.getElementById('userSidePanel');
       const overlay = document.getElementById('panelOverlay');
       const isOpen = panel.style.left === '0px';
@@ -4593,6 +4505,7 @@
     
     // Toggle expandable sections in left panel
     function toggleSection(sectionId) {
+      console.log('🌐 toggleSection()', { sectionId });
       const section = document.getElementById(sectionId);
       const toggleIcon = document.getElementById(sectionId.replace('Content', 'Toggle'));
       
@@ -4609,6 +4522,7 @@
     
     // Open settings panel from left menu
     function openSettingsPanel() {
+      console.log('🌐 openSettingsPanel()');
       // Close left panel
       toggleUserPanel();
       
@@ -4619,6 +4533,7 @@
     
     // Switch theme from menu (stays in menu, doesn't close)
     function switchThemeInMenu(themeName) {
+      console.log('🌐 switchThemeInMenu()', { themeName });
       // Update body class
       document.body.className = 'theme-' + themeName;
       
@@ -4648,6 +4563,7 @@
     }
     
     function showPanelAdmin() {
+      console.log('🌐 showPanelAdmin()');
       // Close side panel
       toggleUserPanel();
       
@@ -4657,6 +4573,7 @@
     }
     
     function showAdvancedStats() {
+      console.log('🌐 showAdvancedStats()');
       // Close dropdown
       document.getElementById('userDropdownMenu').style.display = 'none';
       
@@ -4666,6 +4583,7 @@
     }
     
     function showSettingsMenu() {
+      console.log('🌐 showSettingsMenu()');
       // Close dropdown
       document.getElementById('userDropdownMenu').style.display = 'none';
       
@@ -4675,6 +4593,7 @@
     }
     
     function showAdminPanel() {
+      console.log('🌐 showAdminPanel()');
       // Close dropdown
       document.getElementById('userDropdownMenu').style.display = 'none';
       
@@ -4684,6 +4603,7 @@
     }
     
     function toggleSettingsPanel() {
+      console.log('🌐 toggleSettingsPanel()');
       const panel = document.getElementById('settingsPanel');
       const settingsBtn = document.getElementById('settingsBtn');
       const isOpen = panel.style.right === '0px';
@@ -4710,6 +4630,7 @@
     }
     
     function switchSettingsTab(tabName) {
+      console.log('🌐 switchSettingsTab()', { tabName });
       // Hide all tab contents
       document.getElementById('profileTabContent').style.display = 'none';
       document.getElementById('generalTabContent').style.display = 'none';
@@ -4753,6 +4674,7 @@
 
     
     function switchThemeFromSettings(themeName) {
+      console.log('🌐 switchThemeFromSettings()', { themeName });
       // Call existing switchTheme function
       switchTheme(themeName);
       
@@ -4773,12 +4695,14 @@
     }
     
     function toggleSound(enabled) {
+      console.log('🌐 toggleSound()', { enabled });
       if (typeof SFX !== 'undefined') {
         SFX.enabled = enabled;
       }
     }
     
     async function showLeaderboard() {
+      console.log('🌐 showLeaderboard()');
       document.getElementById('leaderboardModal').style.display = 'flex';
       const content = document.getElementById('leaderboardContent');
       content.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
@@ -4840,10 +4764,12 @@
     }
     
     function closeLeaderboard() {
+      console.log('🌐 closeLeaderboard()');
       document.getElementById('leaderboardModal').style.display = 'none';
     }
     
     async function saveGameResult(playerWon, playerScore, aiScore) {
+      console.log('🌐 saveGameResult()', { playerWon, playerScore, aiScore });
       // Skip saving for anonymous users
       if (isAnonymousMode || !currentUser || !userStats) return;
       
@@ -4921,6 +4847,7 @@
     }
     
     function getErrorMessage(errorCode) {
+      console.log('🌐 getErrorMessage()', { errorCode });
       const messages = {
         'auth/email-already-in-use': 'Email already in use',
         'auth/invalid-email': 'Invalid email address',
@@ -4935,6 +4862,7 @@
     
     // v1.5.0: Supabase error messages
     function getSupabaseErrorMessage(errorMessage) {
+      console.log('🌐 getSupabaseErrorMessage()', { errorMessage });
       if (errorMessage.includes('Invalid login credentials')) {
         return 'Invalid email or password';
       }
@@ -4986,6 +4914,7 @@
       context: null,
       
       init() {
+        console.log('🔧 init()');
         if (!this.context) {
           this.context = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -4993,6 +4922,7 @@
       
       // Play tile click sound
       tileClick() {
+        console.log('🔧 tileClick()');
         if (!this.enabled) return;
         this.init();
         const osc = this.context.createOscillator();
@@ -5013,6 +4943,7 @@
       
       // Play tile placement sound
       tilePlaced() {
+        console.log('🔧 tilePlaced()');
         if (!this.enabled) return;
         this.init();
         const osc = this.context.createOscillator();
@@ -5033,6 +4964,7 @@
       
       // Play word validation success
       wordSuccess() {
+        console.log('🔧 wordSuccess()');
         if (!this.enabled) return;
         this.init();
         
@@ -5059,6 +4991,7 @@
       
       // Play word validation failure
       wordFail() {
+        console.log('🔧 wordFail()');
         if (!this.enabled) return;
         this.init();
         const osc = this.context.createOscillator();
@@ -5079,6 +5012,7 @@
       
       // Play shuffle sound
       shuffle() {
+        console.log('🔧 shuffle()');
         if (!this.enabled) return;
         this.init();
         
@@ -5103,6 +5037,7 @@
       
       // Play turn change sound
       turnChange() {
+        console.log('🔧 turnChange()');
         if (!this.enabled) return;
         this.init();
         const osc = this.context.createOscillator();
@@ -5124,6 +5059,7 @@
       
       // Play game over sound
       gameOver() {
+        console.log('🔧 gameOver()');
         if (!this.enabled) return;
         this.init();
         
@@ -5242,6 +5178,7 @@
     };
     
     function showDifficulty() {
+      console.log('🌐 showDifficulty()');
       document.getElementById('modeSelection').style.display = 'none';
       document.getElementById('difficultySelection').style.display = 'flex';
       
@@ -5269,6 +5206,7 @@
     }
     
     function startGameWithBot(botId) {
+      console.log('🌐 startGameWithBot()', { botId });
       const bot = BOT_PERSONALITIES.find(b => b.id === botId);
       // Map bot ID to old difficulty level for now (will update AI logic later)
       const difficultyMapping = {
@@ -5290,6 +5228,7 @@
     // ============================================
     
     function selectGameType(type) {
+      console.log('🌐 selectGameType()', { type });
       currentGameType = type;
       const rankedBtn = document.getElementById('rankedBtn');
       const unrankedBtn = document.getElementById('unrankedBtn');
@@ -5314,6 +5253,7 @@
     }
     
     async function checkCalibrationStatus() {
+      console.log('🌐 checkCalibrationStatus()');
       if (!currentUser) return false;
       
       try {
@@ -5353,6 +5293,7 @@
     }
     
     function goToCalibration() {
+      console.log('🌐 goToCalibration()');
       // Close settings/menu panels
       toggleSettingsPanel();
       const sidePanel = document.getElementById('userSidePanel');
@@ -5366,6 +5307,7 @@
     }
     
     function goToCalibration() {
+      console.log('🌐 goToCalibration()');
       // Close user menu
       toggleUserMenu();
       
@@ -5382,6 +5324,7 @@
     }
     
     function startCalibration() {
+      console.log('🌐 startCalibration()');
       // Hide multiplayer setup, show calibration screen
       document.getElementById('multiplayerSetup').style.display = 'none';
       document.getElementById('calibrationScreen').style.display = 'flex';
@@ -5400,6 +5343,7 @@
     }
     
     function skipCalibration() {
+      console.log('🌐 skipCalibration()');
       if (!confirm('Are you sure you want to skip calibration?\n\nYou will only be able to play unranked games.')) {
         return;
       }
@@ -5410,6 +5354,7 @@
     }
     
     function updateCalibrationUI() {
+      console.log('🌐 updateCalibrationUI()');
       const gameNum = calibrationState.currentGame;
       
       // Update progress indicators
@@ -5453,6 +5398,7 @@
     }
     
     function getClosestBot(targetRating) {
+      console.log('🌐 getClosestBot()', { targetRating });
       let closest = BOT_PERSONALITIES[0];
       let minDiff = Math.abs(BOT_PERSONALITIES[0].rating - targetRating);
       
@@ -5468,6 +5414,7 @@
     }
     
     function startCalibrationGame() {
+      console.log('🌐 startCalibrationGame()');
       // Get the bot for current calibration game
       let targetRating = 1200;
       if (calibrationState.provisionalRating) {
@@ -5499,6 +5446,7 @@
     
     // Flag moves during calibration
     function flagMoveIfCritical(board, rack, playerMove, validMoves) {
+      console.log('🌐 flagMoveIfCritical()', { board, rack, playerMove, validMoves });
       if (!isCalibrationGame) return;
       
       currentMoveData.moveNumber++;
@@ -5544,6 +5492,7 @@
     
     // Called when calibration game ends
     async function onCalibrationGameEnd(playerScore, botScore) {
+      console.log('🌐 onCalibrationGameEnd()', { playerScore, botScore });
       const gameNum = calibrationState.currentGame;
       const bot = currentBotPersonality;
       
@@ -5566,6 +5515,7 @@
     }
     
     async function analyzeCalibrationGame(gameResult) {
+      console.log('🌐 analyzeCalibrationGame()', { gameResult });
       // Show analysis screen
       document.getElementById('calibrationAnalysis').style.display = 'flex';
       
@@ -5621,6 +5571,7 @@
     }
     
     function calculateProvisionalRating(gameResult, moveEfficiency) {
+      console.log('🌐 calculateProvisionalRating()', { gameResult, moveEfficiency });
       const { playerScore, botScore, botRating } = gameResult;
       
       // 30% from game result
@@ -5644,6 +5595,7 @@
     }
     
     async function findBestMoveForPosition(board, rack) {
+      console.log('🌐 findBestMoveForPosition()', { board, rack });
       // Use existing findBestMove function (from AI)
       // This is a simplified version - the real one exists in the AI logic
       const validMoves = getAllValidMovesForRack(board, rack);
@@ -5655,6 +5607,7 @@
     }
     
     function getAllValidMovesForRack(board, rack) {
+      console.log('🌐 getAllValidMovesForRack()', { board, rack });
       // This would call the existing word validation logic
       // Simplified for now - returns empty array
       // The real implementation already exists in the AI move generation
@@ -5662,10 +5615,12 @@
     }
     
     function sleep(ms) {
+      console.log('🌐 sleep()', { ms });
       return new Promise(resolve => setTimeout(resolve, ms));
     }
     
     async function saveCalibrationGame(gameResult) {
+      console.log('🌐 saveCalibrationGame()', { gameResult });
       if (!currentUser) return;
       
       try {
@@ -5693,6 +5648,7 @@
     }
     
     function showCalibrationNextGame() {
+      console.log('🌐 showCalibrationNextGame()');
       // Hide analysis, show calibration screen
       document.getElementById('calibrationAnalysis').style.display = 'none';
       document.getElementById('calibrationScreen').style.display = 'flex';
@@ -5702,6 +5658,7 @@
     }
     
     async function completeCalibration() {
+      console.log('🌐 completeCalibration()');
       // Calculate final rating (average of 3 provisional ratings)
       const ratings = calibrationState.games.map(g => g.provisionalRating);
       const finalRating = Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
@@ -5745,20 +5702,24 @@
     
     // Old function for compatibility
     function startGameWithSlider() {
+      console.log('🌐 startGameWithSlider()');
       startGameWithBot(5); // Default to Bot 5
     }
     
     function showDeviceSelection() {
+      console.log('🌐 showDeviceSelection()');
       document.getElementById('modeSelection').style.display = 'none';
       document.getElementById('deviceSelection').style.display = 'flex';
     }
 
     function showPlayerNames() {
+      console.log('🌐 showPlayerNames()');
       document.getElementById('deviceSelection').style.display = 'none';
       document.getElementById('playerNames').style.display = 'flex';
     }
 
     async function showMultiplayerSetup() {
+      console.log('🌐 showMultiplayerSetup()');
       showLoading();
       document.getElementById('deviceSelection').style.display = 'none';
       
@@ -5804,6 +5765,7 @@
     }
 
     function showJoinGame() {
+      console.log('🌐 showJoinGame()');
       document.getElementById('multiplayerSetup').style.display = 'none';
       document.getElementById('joinGameScreen').style.display = 'flex';
       document.getElementById('joinGameCode').value = '';
@@ -5811,6 +5773,7 @@
     }
 
     function backToModeSelection() {
+      console.log('🌐 backToModeSelection()');
       document.getElementById('playerNames').style.display = 'none';
       document.getElementById('deviceSelection').style.display = 'none';
       document.getElementById('difficultySelection').style.display = 'none';
@@ -5821,6 +5784,7 @@
     }
 
     function backToDeviceSelection() {
+      console.log('🌐 backToDeviceSelection()');
       document.getElementById('playerNames').style.display = 'none';
       document.getElementById('multiplayerSetup').style.display = 'none';
       document.getElementById('modeSelection').style.display = 'none';
@@ -5828,6 +5792,7 @@
     }
 
     function backToMultiplayerSetup() {
+      console.log('🌐 backToMultiplayerSetup()');
       document.getElementById('joinGameScreen').style.display = 'none';
       document.getElementById('createGameScreen').style.display = 'none';
       document.getElementById('deviceSelection').style.display = 'none';
@@ -5841,6 +5806,7 @@
     // ============================================
     
     function updateLobbyPlayerList() {
+      console.log('🌐 updateLobbyPlayerList()');
       const listEl = document.getElementById('lobbyPlayersList');
       const countEl = document.getElementById('playerCount');
       
@@ -5877,6 +5843,7 @@
     }
     
     function setupPlayerConnection(conn) {
+      console.log('🌐 setupPlayerConnection()', { conn });
       const peerId = conn.peer;
       
       conn.on('open', () => {
@@ -5935,6 +5902,7 @@
     }
     
     async function handlePlayerJoin(peerId, playerName) {
+      console.log('🌐 handlePlayerJoin()', { peerId, playerName });
       if (!isHost) return; // Only host handles joins
       
       // Check if lobby is full
@@ -5987,6 +5955,7 @@
     }
     
     function broadcastLobbyUpdate() {
+      console.log('🌐 broadcastLobbyUpdate()');
       const message = {
         type: 'lobby_update',
         players: lobbyPlayers
@@ -6002,6 +5971,7 @@
     }
     
     function broadcastToAllPlayers(data) {
+      console.log('🌐 broadcastToAllPlayers()', { data });
       Object.values(connections).forEach(conn => {
         try {
           conn.send(data);
@@ -6012,6 +5982,7 @@
     }
     
     function handlePlayerDisconnect(peerId) {
+      console.log('🌐 handlePlayerDisconnect()', { peerId });
       // Remove from lobby
       lobbyPlayers = lobbyPlayers.filter(p => p.peerId !== peerId);
       
@@ -6028,6 +5999,7 @@
     }
     
     async function startLobbyGame() {
+      console.log('🌐 startLobbyGame()');
       if (!isHost) return;
       if (lobbyPlayers.length < 2) {
         alert('Need at least 2 players to start!');
@@ -6074,6 +6046,7 @@
     }
     
     function startMultiplayerGame() {
+      console.log('🌐 startMultiplayerGame()');
       // Hide lobby
       document.getElementById('createGameScreen').style.display = 'none';
       document.getElementById('joinGameScreen').style.display = 'none';
@@ -6122,6 +6095,7 @@
 
     // Helper function to capitalize names properly
     function capitalizeName(name) {
+      console.log('🌐 capitalizeName()', { name });
       return name
         .trim()
         .split(' ')
@@ -6130,6 +6104,7 @@
     }
 
     async function createOnlineGame() {
+      console.log('🌐 createOnlineGame()');
       const nameInput = document.getElementById('onlinePlayerName').value.trim();
       if (!nameInput) {
         alert('Please enter your name');
@@ -6195,6 +6170,7 @@
     }
 
     function joinOnlineGame() {
+      console.log('🌐 joinOnlineGame()');
       const code = document.getElementById('joinGameCode').value.trim().toUpperCase();
       const nameInput = document.getElementById('onlinePlayerName').value.trim();
       
@@ -6345,6 +6321,7 @@
     }
 
     function setupConnection() {
+      console.log('🌐 setupConnection()');
       connection.on('data', (data) => {
         handleRemoteMove(data);
       });
@@ -6422,6 +6399,7 @@
     }
 
     function handleRemoteMove(data) {
+      console.log('🌐 handleRemoteMove()', { data });
       if (!game) {
         // Handle setup messages before game starts
         if (data.type === 'setup' && !isHost) {
@@ -6531,6 +6509,7 @@
     }
 
     function sendMove(moveData) {
+      console.log('🌐 sendMove()', { moveData });
       if (connection && connection.open) {
         connection.send(moveData);
       }
@@ -6538,6 +6517,7 @@
     
     // v2.0.0: Multi-player move broadcasting
     function sendMoveV2(moveData) {
+      console.log('🌐 sendMoveV2()', { moveData });
       if (isHost) {
         // Host broadcasts to all players
         broadcastToAllPlayers(moveData);
@@ -6554,6 +6534,7 @@
     let chatOpen = false;
 
     function toggleChat() {
+      console.log('🌐 toggleChat()');
       chatOpen = !chatOpen;
       const chatPanel = document.getElementById('chatPanel');
       const chatToggle = document.getElementById('chatToggle');
@@ -6575,6 +6556,7 @@
     }
 
     function sendChatMessage() {
+      console.log('🌐 sendChatMessage()');
       const input = document.getElementById('chatInput');
       const message = input.value.trim();
       
@@ -6595,6 +6577,7 @@
     }
 
     function addChatMessage(sender, message, isMe) {
+      console.log('🌐 addChatMessage()', { sender, message, isMe });
       const chatMessages = document.getElementById('chatMessages');
       const messageDiv = document.createElement('div');
       
@@ -6634,6 +6617,7 @@
     }
 
     function startGameWithNames() {
+      console.log('🌐 startGameWithNames()');
       const p1 = document.getElementById('player1Name').value.trim();
       const p2 = document.getElementById('player2Name').value.trim();
       
@@ -6644,6 +6628,7 @@
     }
 
     function startGame(mode, difficulty) {
+      console.log('🌐 startGame()', { mode, difficulty });
       gameMode = mode;
       if (difficulty) {
         aiDifficulty = difficulty;
@@ -6717,6 +6702,7 @@
     let dictionaryLoaded = false;
     
     async function loadDictionary() {
+      console.log('🌐 loadDictionary()');
       const statusEl = document.getElementById('dict-status');
       
       // Check localStorage cache first
@@ -6836,6 +6822,7 @@
     const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/ThitiKhacharoen/Scrabble/main/version.txt';
     
     async function checkForUpdates() {
+      console.log('🌐 checkForUpdates()');
       try {
         // Check on every page load for latest version
         const now = Date.now();
@@ -6871,6 +6858,7 @@
     }
     
     function isNewerVersion(latest, current) {
+      console.log('🌐 isNewerVersion()', { latest, current });
       const latestParts = latest.split('.').map(Number);
       const currentParts = current.split('.').map(Number);
       
@@ -6882,6 +6870,7 @@
     }
     
     function showUpdateNotification(newVersion) {
+      console.log('🌐 showUpdateNotification()', { newVersion });
       const banner = document.createElement('div');
       banner.id = 'update-banner';
       banner.style.cssText = `
@@ -6981,10 +6970,12 @@
     // ========================================
 
     async function validateWord(word) {
+      console.log('🔍 Validating word:', word);
       word = word.toUpperCase();
       
       // Handle blank tiles (_) - try all possible letters
       if (word.includes('_')) {
+        console.log('Word contains blank tile, trying all combinations...');
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         
         // Try replacing each blank with each letter
@@ -6995,12 +6986,14 @@
           if (testWord.includes('_')) {
             const isValid = await validateWord(testWord);
             if (isValid) {
+              console.log('✅ Valid word found:', testWord);
               wordCache.set(word, true);
               return true;
             }
           } else {
             // Check if this combination is valid
             if (offlineWords.has(testWord)) {
+              console.log('✅ Valid word found in offline dictionary:', testWord);
               wordCache.set(word, true);
               return true;
             }
@@ -7008,31 +7001,37 @@
         }
         
         // None of the combinations were valid
+        console.log('❌ No valid combinations found');
         wordCache.set(word, false);
         return false;
       }
       
       if (wordCache.has(word)) {
-        return wordCache.get(word);
+        const cached = wordCache.get(word);
+        console.log('📦 Using cached result:', cached);
+        return cached;
       }
 
       // Try offline validation first
       if (offlineWords.has(word)) {
+        console.log('✅ Word found in offline dictionary');
         wordCache.set(word, true);
         return true;
       }
 
       // Try online API
       try {
+        console.log('🌐 Checking online dictionary API...');
         const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`, {
           signal: AbortSignal.timeout(5000) // 5 second timeout
         });
         const isValid = response.ok;
+        console.log(isValid ? '✅ Word valid (online)' : '❌ Word invalid (online)');
         wordCache.set(word, isValid);
         return isValid;
       } catch (error) {
         // If offline or API fails, reject unknown words
-        console.log('Dictionary API unavailable, rejecting unknown word:', word);
+        console.log('⚠️ Dictionary API unavailable, rejecting unknown word:', word, error.message);
         wordCache.set(word, false);
         return false;
       }
@@ -7093,6 +7092,7 @@
       }
 
       showTurnTransition() {
+        console.log('🔧 showTurnTransition()');
         if (this.gameMode !== 'human') return; // Only for 2-player mode
         
         this.pendingTransition = true;
@@ -7123,6 +7123,7 @@
 
       /* CHEATING PENALTY SYSTEM - DISABLED BUT KEPT FOR REFERENCE
       setupCheatingDetector() {
+        console.log('🔧 setupCheatingDetector()');
         const rack = document.getElementById('rack');
         
         // Remove old detector if exists
@@ -7144,6 +7145,7 @@
       }
 
       applyCheatingPenalty() {
+        console.log('🔧 applyCheatingPenalty()');
         const PENALTY = 10;
         
         // Apply penalty to current player
@@ -7179,6 +7181,7 @@
       */
 
       confirmTurnTransition() {
+        console.log('🔧 confirmTurnTransition()');
         // CHEATING PENALTY DISABLED
         // this.tilesRevealed = true;
         
@@ -7204,6 +7207,7 @@
       }
 
       initializeTileBag() {
+        console.log('🔧 initializeTileBag()');
         const bag = [];
         for (const [letter, {count, points}] of Object.entries(LETTER_DIST)) {
           for (let i = 0; i < count; i++) {
@@ -7214,6 +7218,7 @@
       }
 
       shuffle(array) {
+        console.log('🔧 shuffle()', { array });
         const shuffled = [...array];
         for (let i = shuffled.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -7223,6 +7228,7 @@
       }
 
       drawTiles(count) {
+        console.log('🔧 drawTiles()', { count });
         const tiles = [];
         for (let i = 0; i < count && this.tileBag.length > 0; i++) {
           const tile = this.tileBag.pop();
@@ -7233,6 +7239,7 @@
       }
 
       initializeGame() {
+        console.log('🔧 initializeGame()');
         // Draw tiles for all players
         this.players.forEach(player => {
           player.rack = this.drawTiles(7);
@@ -7267,6 +7274,7 @@
       }
 
       renderBoard() {
+        console.log('🔧 renderBoard()');
         const boardEl = document.getElementById('board');
         boardEl.innerHTML = '';
         
@@ -7337,6 +7345,7 @@
       }
 
       renderRack() {
+        console.log('🔧 renderRack()');
         const rackEl = document.getElementById('rack');
         
         // v1.3.2 Fix: Force clear any lingering filters/styles
@@ -7389,6 +7398,7 @@
       }
 
       selectTile(tile, index) {
+        console.log('🔧 selectTile()', { tile, index });
         this.selectedTile = tile;
         this.selectedTileIndex = index;
         
@@ -7406,6 +7416,7 @@
       }
 
       handleCellClick(row, col) {
+        console.log('🔧 handleCellClick()', { row, col });
         // Prevent placing tiles when not your turn in online mode
         if (this.gameMode === 'online' && this.currentTurn !== onlinePlayerRole) {
           return;
@@ -7445,6 +7456,7 @@
       }
 
       recallTiles() {
+        console.log('🔧 recallTiles()');
         // Send recall notification to opponent in online mode
         if (this.gameMode === 'online' && this.placedTiles.length > 0) {
           sendMove({
@@ -7465,6 +7477,7 @@
       }
 
       calculateCurrentScore() {
+        console.log('🔧 calculateCurrentScore()');
         if (this.placedTiles.length === 0) {
           document.getElementById('currentScore').textContent = '0';
           return 0;
@@ -7572,6 +7585,7 @@
       }
 
       async playWord() {
+        console.log('🔧 playWord()');
         // v2.0.0: Multi-player turn validation
         const currentPlayer = this.players[this.currentPlayerIndex];
         if (this.gameMode === 'online' && !currentPlayer.isMe) {
@@ -7598,18 +7612,19 @@
           }
         }
 
-        // Get the word formed
-        const word = this.getFormedWord();
-        
-        // Validate word with dictionary
-        this.showMessage('Validating word...');
-        const isValid = await validateWord(word);
-        
-        if (!isValid) {
-          SFX.wordFail();
-          this.showMessage(`"${word}" is not a valid English word. Try again.`);
-          return;
-        }
+        try {
+          // Get the word formed
+          const word = this.getFormedWord();
+          
+          // Validate word with dictionary
+          this.showMessage('Validating word...');
+          const isValid = await validateWord(word);
+          
+          if (!isValid) {
+            SFX.wordFail();
+            this.showMessage(`"${word}" is not a valid English word. Try again.`);
+            return;
+          }
 
         // Calculate score
         const score = this.calculateCurrentScore();
@@ -7715,9 +7730,21 @@
           // Fallback
           this.renderRack();
         }
+        } catch (error) {
+          console.error('Error in playWord:', error);
+          this.showMessage('An error occurred. Please try again.');
+          // Reset placed tiles on error
+          this.placedTiles.forEach(({tile, row, col}) => {
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (cell) cell.classList.remove('occupied');
+            tile.placed = false;
+          });
+          this.renderRack();
+        }
       }
 
       getFormedWord() {
+        console.log('🔧 getFormedWord()');
         const tiles = [...this.placedTiles];
         tiles.sort((a, b) => {
           if (this.direction === 'horizontal') {
@@ -7783,6 +7810,7 @@
       }
 
       validatePlacement() {
+        console.log('🔧 validatePlacement()');
         if (this.placedTiles.length === 0) return false;
         
         // Auto-detect direction from placed tiles
@@ -7877,6 +7905,7 @@
       }
 
       async aiTurn() {
+        console.log('🔧 aiTurn()');
         // Add thinking animation to AI score value
         const aiCard = document.getElementById('aiScoreCard');
         const aiScoreValue = aiCard.querySelector('.score-value');
@@ -7928,6 +7957,7 @@
       }
 
       async findBestAiMove() {
+        console.log('🔧 findBestAiMove()');
         let allPossibleMoves = [];
         
         if (this.firstMove) {
@@ -8011,6 +8041,7 @@
       }
 
       async evaluateMoveWithLookahead(move, depth) {
+        console.log('🔧 evaluateMoveWithLookahead()', { move, depth });
         if (depth === 0) {
           return move.score; // Base case: just return the immediate score
         }
@@ -8072,6 +8103,7 @@
       }
 
       async findDesperationMoves() {
+        console.log('🔧 findDesperationMoves()');
         const moves = [];
         
         // Try all 2-letter combinations everywhere on board
@@ -8152,6 +8184,7 @@
       }
 
       async findFirstMove() {
+        console.log('🔧 findFirstMove()');
         const moves = [];
         
         // Difficulty controls search depth - how many permutations to check
@@ -8200,6 +8233,7 @@
       }
 
       async findAllPossibleMoves() {
+        console.log('🔧 findAllPossibleMoves()');
         const moves = [];
         
         // Difficulty controls search thoroughness
@@ -8248,6 +8282,7 @@
       }
 
       async findMovesAt(row, col, direction, maxWordLength = 7) {
+        console.log('🔧 findMovesAt()', { row, col, direction, maxWordLength });
         const moves = [];
         
         // Limit permutations based on difficulty
@@ -8331,6 +8366,7 @@
       }
 
       validateAllFormedWords(tiles, startRow, startCol, direction) {
+        console.log('🔧 validateAllFormedWords()', { tiles, startRow, startCol, direction });
         // Temporarily place tiles to check all formed words
         const tempPlacements = [];
         
@@ -8457,6 +8493,7 @@
       }
 
       getPermutations(tiles, length) {
+        console.log('🔧 getPermutations()', { tiles, length });
         if (length === 0) return [[]];
         if (tiles.length === 0) return [];
         if (length > tiles.length) return [];
@@ -8477,6 +8514,7 @@
       }
 
       calculateAiScore(tiles, row, col, direction) {
+        console.log('🔧 calculateAiScore()', { tiles, row, col, direction });
         // Get the full word range including existing tiles
         let startPos = direction === 'horizontal' ? col : row;
         let endPos = startPos + tiles.length - 1;
@@ -8566,6 +8604,7 @@
       }
 
       passTurn() {
+        console.log('🔧 passTurn()');
         // v2.0.0: Multi-player turn validation
         const currentPlayer = this.players[this.currentPlayerIndex];
         if (this.gameMode === 'online' && !currentPlayer.isMe) {
@@ -8616,6 +8655,7 @@
       }
 
       endGame() {
+        console.log('🔧 endGame()');
         // Play game over sound
         SFX.gameOver();
         
@@ -8691,12 +8731,14 @@
       }
 
       shuffleRack() {
+        console.log('🔧 shuffleRack()');
         SFX.shuffle();
         this.playerRack = this.shuffle(this.playerRack);
         this.renderRack();
       }
 
       updateScores() {
+        console.log('🔧 updateScores()');
         // v2.0.0: Multi-player support
         if (this.players.length > 2) {
           // Show multi-player scores
@@ -8731,11 +8773,13 @@
       }
 
       updateInfo() {
+        console.log('🔧 updateInfo()');
         document.getElementById('tilesRemaining').textContent = this.tileBag.length;
       }
 
       // v2.0.0: Multi-player turn rotation
       nextTurn() {
+        console.log('🔧 nextTurn()');
         this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
         
         // Update legacy currentTurn for compatibility
@@ -8757,6 +8801,7 @@
       }
 
       updateTurnIndicator() {
+        console.log('🔧 updateTurnIndicator()');
         document.getElementById('turnIndicator').textContent = this.currentTurn === 'player' ? '✓' : '✗';
         
         const playerCard = document.getElementById('playerScoreCard');
@@ -8781,10 +8826,12 @@
       }
 
       showMessage(text) {
+        console.log('🔧 showMessage()', { text });
         document.getElementById('message').textContent = text;
       }
 
       setupEventListeners() {
+        console.log('🔧 setupEventListeners()');
         document.getElementById('playBtn').addEventListener('click', () => this.playWord());
         document.getElementById('shuffleBtn').addEventListener('click', () => this.shuffleRack());
         document.getElementById('recallBtn').addEventListener('click', () => this.recallTiles());
@@ -8793,6 +8840,7 @@
 
       // Online multiplayer methods
       applyRemoteMove(data) {
+        console.log('🔧 applyRemoteMove()', { data });
         // Clear opponent preview tiles since they're now playing
         this.opponentPreviewTiles = [];
         
@@ -8838,6 +8886,7 @@
       }
 
       applyRemotePass(data) {
+        console.log('🔧 applyRemotePass()', { data });
         // v2.0.0: Find which player passed
         const playerWhoPassed = data && data.playerOrder ? 
           this.players.find(p => p.order === data.playerOrder) :
@@ -8870,6 +8919,7 @@
 
       // Handle opponent tile placement preview
       addOpponentPreviewTile(data) {
+        console.log('🔧 addOpponentPreviewTile()', { data });
         this.opponentPreviewTiles.push({
           letter: data.letter,
           points: data.points,
@@ -8881,6 +8931,7 @@
 
       // Handle opponent recalling tiles
       clearOpponentPreviewTiles(positions) {
+        console.log('🔧 clearOpponentPreviewTiles()', { positions });
         if (positions && positions.length > 0) {
           // Remove specific positions
           this.opponentPreviewTiles = this.opponentPreviewTiles.filter(tile => {
@@ -8898,6 +8949,7 @@
       // ============================================
       
       async saveGameState() {
+        console.log('🔧 saveGameState()');
         if (this.mode !== 'online' || !currentGameId) return;
         
         try {
@@ -8934,6 +8986,7 @@
       }
       
       async loadGameState(gameId) {
+        console.log('🔧 loadGameState()', { gameId });
         try {
           const { data, error } = await window.supabase
             .from('games')
@@ -8983,6 +9036,7 @@
     let maxReconnectAttempts = 3;
     
     async function createGameRecord() {
+      console.log('🌐 createGameRecord()');
       if (!currentUser) return null;
       
       try {
@@ -9014,6 +9068,7 @@
     // ============================================
     
     async function createGameRecordV2() {
+      console.log('🌐 createGameRecordV2()');
       try {
         // Try creating game record in database
         const { data: gameData, error: gameError } = await window.supabase
@@ -9080,6 +9135,7 @@
     }
     
     async function addPlayerToGame(playerName, peerId) {
+      console.log('🌐 addPlayerToGame()', { playerName, peerId });
       try {
         // Get current player count
         const { data: players, error: countError } = await window.supabase
@@ -9141,6 +9197,7 @@
     }
     
     async function getGamePlayers() {
+      console.log('🌐 getGamePlayers()');
       try {
         const { data, error } = await window.supabase
           .from('game_players')
@@ -9157,6 +9214,7 @@
     }
     
     async function updateGameStatus(status) {
+      console.log('🌐 updateGameStatus()', { status });
       // Skip database updates for peer-only games
       if (currentGameId && currentGameId.startsWith('peer_')) {
         console.log('⚠️ Peer-only mode - skipping game status update');
@@ -9185,6 +9243,7 @@
     }
     
     async function updateLastRankedRating() {
+      console.log('🌐 updateLastRankedRating()');
       // Save current rating as last_ranked_rating after a ranked game
       if (!currentUser) return;
       
@@ -9208,6 +9267,7 @@
     // ============================================
     
     async function updateGameRecord(updates) {
+      console.log('🌐 updateGameRecord()', { updates });
       if (!currentGameId) return;
       
       try {
@@ -9226,6 +9286,7 @@
     }
     
     async function markDisconnected(playerRole) {
+      console.log('🌐 markDisconnected()', { playerRole });
       if (!currentGameId) return;
       
       try {
@@ -9249,6 +9310,7 @@
     }
     
     async function checkForRejoinableGame() {
+      console.log('🌐 checkForRejoinableGame()');
       if (!currentUser) return null;
       
       try {
@@ -9292,6 +9354,7 @@
     }
     
     async function rejoinGame(gameData) {
+      console.log('🌐 rejoinGame()', { gameData });
       try {
         currentGameId = gameData.id;
         const isHost = gameData.host_id === currentUser.id;
@@ -9361,6 +9424,7 @@
     let currentBanUsername = null;
 
     function openAdminPanel() {
+      console.log('🌐 openAdminPanel()');
       const panel = document.getElementById('adminPanel');
       panel.style.display = 'flex';
       
@@ -9369,6 +9433,7 @@
     }
 
     function closeAdminPanel() {
+      console.log('🌐 closeAdminPanel()');
       document.getElementById('adminPanel').style.display = 'none';
     }
 
@@ -9378,6 +9443,7 @@
 
 
     async function checkBanStatus() {
+      console.log('🌐 checkBanStatus()');
       if (!currentUser) return true; // Allow if no user
       
       try {
@@ -9430,6 +9496,7 @@
     }
 
     function showBanScreen(userData) {
+      console.log('🌐 showBanScreen()', { userData });
       // Hide all other interfaces
       document.getElementById('authContainer').style.display = 'none';
       document.getElementById('modeSelection').style.display = 'none';
@@ -9629,11 +9696,13 @@
   <script>
     // Loading Spinner Functions
     function showLoading() {
+      console.log('🌐 showLoading()');
       const overlay = document.getElementById('loadingOverlay');
       if (overlay) overlay.style.display = 'flex';
     }
 
     function hideLoading() {
+      console.log('🌐 hideLoading()');
       const overlay = document.getElementById('loadingOverlay');
       if (overlay) overlay.style.display = 'none';
     }
@@ -9644,11 +9713,13 @@
     document.body.className = 'theme-' + currentTheme;
     
     function toggleThemeMenu() {
+      console.log('🌐 toggleThemeMenu()');
       const menu = document.getElementById('theme-menu');
       menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
     }
     
     function switchTheme(themeId) {
+      console.log('🌐 switchTheme()', { themeId });
       // Update body class
       document.body.className = 'theme-' + themeId;
       
