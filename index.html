@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.7</title>
+  <title>Scrabble Game v3.0.8</title>
   <!-- Version: 3.0.7 | Date: January 4, 2026 | PATCH: Fixed validation hang + comprehensive debug logging -->
   <!-- Cache Buster: 20260104-0003 -->
   <!-- Debug: All functions log with 🔧 (class methods) or 🌐 (global functions) -->
@@ -1448,18 +1448,18 @@
       const SUPABASE_URL = 'https://bovfmxfdbrmbmybzvuss.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvdmZteGZkYnJtYm15Ynp2dXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4MDM0MDgsImV4cCI6MjA4MDM3OTQwOH0.558ePBHGLj5Igow2qy5PhB8TTN88snZ_dsv_KYhJAMI';
       
-      // Create Supabase client with session storage (clears on tab close)
+      // Create Supabase client with localStorage (persists across reloads)
       const { createClient } = supabase;
       window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
-          storage: window.sessionStorage, // Use sessionStorage instead of localStorage
+          storage: window.localStorage, // Use localStorage to persist sessions
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true
         }
       });
       
-      console.log('✅ Supabase initialized with session storage:', window.supabase);
+      console.log('✅ Supabase initialized with local storage:', window.supabase);
     }
   </script>
   
@@ -1977,6 +1977,56 @@
         <button onclick="handleLogout()" class="btn-secondary" style="width: 100%;">
           Logout
         </button>
+      </div>
+      
+      <!-- Anonymous Profile Tab Content (for guest users) -->
+      <div id="anonymousProfileTabContent" class="settings-tab-content" style="padding: 30px; display: none;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 36px; color: white;">
+            👤
+          </div>
+          <h3 style="margin: 0 0 5px 0; color: #7f8c8d;">Guest Player</h3>
+          <p style="margin: 0; color: #95a5a6; font-size: 14px;">Playing anonymously</p>
+        </div>
+        
+        <!-- Sign In Prompt -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; margin-bottom: 20px; text-align: center; color: white;">
+          <div style="font-size: 24px; margin-bottom: 10px;">🎮</div>
+          <h3 style="margin: 0 0 10px 0; font-size: 18px;">Unlock Your Full Experience</h3>
+          <p style="margin: 0 0 20px 0; font-size: 14px; opacity: 0.9;">
+            Sign in to save your progress, track stats, compete on leaderboards, and unlock ELO ratings!
+          </p>
+          <button onclick="showAuthInterface()" style="padding: 12px 30px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            🔐 Sign In Now
+          </button>
+        </div>
+        
+        <!-- Features List -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 12px;">
+          <h4 style="margin: 0 0 15px 0; color: var(--accent);">✨ Sign In Benefits</h4>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">📊</span>
+              <span style="font-size: 14px; color: #2c3e50;">Track your statistics and progress</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">🏆</span>
+              <span style="font-size: 14px; color: #2c3e50;">Compete on global leaderboards</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">⭐</span>
+              <span style="font-size: 14px; color: #2c3e50;">Earn ELO rating and rankings</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">💾</span>
+              <span style="font-size: 14px; color: #2c3e50;">Save your best games</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 20px;">🎯</span>
+              <span style="font-size: 14px; color: #2c3e50;">Challenge other players</span>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- General Tab Content (includes Themes) -->
@@ -4633,8 +4683,14 @@
       settingsBtn.style.display = isOpen ? 'block' : 'none';
       
       if (!isOpen) {
-        updateProfileDisplay();
-        switchSettingsTab('profile'); // Default to profile tab
+        // Check if user is anonymous
+        if (isAnonymousMode) {
+          // Show anonymous profile tab for guest users
+          switchSettingsTab('profile-anonymous');
+        } else {
+          updateProfileDisplay();
+          switchSettingsTab('profile'); // Default to profile tab for logged-in users
+        }
         
         // Update theme selector to show current theme
         const currentTheme = document.body.className.replace('theme-', '');
@@ -4652,6 +4708,7 @@
       console.log('🌐 switchSettingsTab()', { tabName });
       // Hide all tab contents
       document.getElementById('profileTabContent').style.display = 'none';
+      document.getElementById('anonymousProfileTabContent').style.display = 'none';
       document.getElementById('generalTabContent').style.display = 'none';
       document.getElementById('adminTabContent').style.display = 'none';
       
@@ -4666,6 +4723,12 @@
       // Show selected tab content and activate tab
       if (tabName === 'profile') {
         document.getElementById('profileTabContent').style.display = 'block';
+        const tab = document.getElementById('profileTab');
+        tab.style.background = 'white';
+        tab.style.borderBottom = '3px solid var(--accent)';
+        tab.style.color = 'var(--accent)';
+      } else if (tabName === 'profile-anonymous') {
+        document.getElementById('anonymousProfileTabContent').style.display = 'block';
         const tab = document.getElementById('profileTab');
         tab.style.background = 'white';
         tab.style.borderBottom = '3px solid var(--accent)';
@@ -9640,9 +9703,10 @@
         const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
         
         if (isOAuthCallback) {
-          console.log('🔄 OAuth callback detected, waiting for onAuthStateChange...');
-          // Don't call getSession yet - let onAuthStateChange handle it
-          // Just show a loading state
+          console.log('🔄 OAuth callback detected, processing tokens...');
+          // Call getSession to process the OAuth tokens and trigger onAuthStateChange
+          const { data: { session }, error } = await window.supabase.auth.getSession();
+          console.log('🔑 OAuth session:', session ? session.user.email : 'None', error ? 'Error: ' + error.message : '');
         } else {
           // Not an OAuth callback, check for existing session
           const { data: { session }, error } = await window.supabase.auth.getSession();
