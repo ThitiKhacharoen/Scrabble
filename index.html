@@ -9639,24 +9639,25 @@
       }
       
       try {
+        // If there's an OAuth callback in the URL hash, let Supabase process it first
+        if (window.location.hash.includes('access_token')) {
+          console.log('🔄 OAuth callback detected in hash, letting Supabase handle it...');
+          // Supabase will automatically parse the hash and trigger onAuthStateChange
+          // Just wait a bit for it to process
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
         // Get initial session
         const { data: { session }, error } = await window.supabase.auth.getSession();
         
         console.log('📦 Session check:', session ? 'Found' : 'None', error ? 'Error: ' + error.message : '');
         
-        // Debug: Show alert to see what's happening
-        if (window.location.search.includes('code=') || window.location.hash.includes('access_token')) {
-          console.log('🔄 Detected OAuth redirect with:', window.location.search, window.location.hash);
-          if (!session) {
-            alert('DEBUG: Redirect detected but no session found!\nError: ' + (error ? error.message : 'none'));
-          } else {
-            console.log('✅ Session found after redirect:', session.user.email);
-          }
-        }
-        
         if (session) {
           console.log('✅ Existing session found for:', session.user.email);
           await handleAuthChange(session);
+        } else if (window.location.hash.includes('access_token')) {
+          // Session should be there after OAuth, wait for onAuthStateChange
+          console.log('⏳ Waiting for onAuthStateChange to process OAuth...');
         } else {
           console.log('❌ No session, showing auth');
           showAuthInterface();
