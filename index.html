@@ -9600,19 +9600,6 @@
     document.addEventListener('DOMContentLoaded', async () => {
       console.log('🔐 Initializing auth...');
       
-      // Debug: Track auth flow across redirects
-      const authDebug = {
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        hasCode: window.location.search.includes('code='),
-        hasToken: window.location.hash.includes('access_token'),
-        localStorage: localStorage.getItem('authDebug')
-      };
-      console.log('🔍 Auth Debug:', authDebug);
-      
-      // Store for next load
-      localStorage.setItem('authDebug', JSON.stringify(authDebug));
-      
       // Attach auth button listeners
       const googleBtn = document.getElementById('googleSignInBtn');
       if (googleBtn) {
@@ -9639,45 +9626,51 @@
       }
       
       try {
-        // If there's an OAuth callback in the URL hash, let Supabase process it first
-        if (window.location.hash.includes('access_token')) {
-          console.log('🔄 OAuth callback detected in hash, letting Supabase handle it...');
-          // Supabase will automatically parse the hash and trigger onAuthStateChange
-          // Just wait a bit for it to process
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        // Check if this is an OAuth callback
+        const isOAuthCallback = window.location.hash.includes('access_token') || window.location.search.includes('code=');
         
-        // Get initial session
-        const { data: { session }, error } = await window.supabase.auth.getSession();
-        
-        console.log('📦 Session check:', session ? 'Found' : 'None', error ? 'Error: ' + error.message : '');
-        
-        if (session) {
-          console.log('✅ Existing session found for:', session.user.email);
-          await handleAuthChange(session);
-        } else if (window.location.hash.includes('access_token')) {
-          // Session should be there after OAuth, wait for onAuthStateChange
-          console.log('⏳ Waiting for onAuthStateChange to process OAuth...');
+        if (isOAuthCallback) {
+          console.log('🔄 OAuth callback detected, waiting for onAuthStateChange...');
+          // Don't call getSession yet - let onAuthStateChange handle it
+          // Just show a loading state
         } else {
-          console.log('❌ No session, showing auth');
-          showAuthInterface();
+          // Not an OAuth callback, check for existing session
+          const { data: { session }, error } = await window.supabase.auth.getSession();
+          
+          console.log('📦 Session check:', session ? 'Found' : 'None', error ? 'Error: ' + error.message : '');
+          
+          if (session) {
+            console.log('✅ Existing session found for:', session.user.email);
+            await handleAuthChange(session);
+          } else {
+            console.log('❌ No session, showing auth');
+            showAuthInterface();
+          }
         }
         
         // Listen for auth changes
+        let isProcessingOAuth = isOAuthCallback;
+        
         window.supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('🔐 Auth event:', event, session ? session.user.email : 'no session');
           
           if (session) {
+            isProcessingOAuth = false;
             await handleAuthChange(session);
           } else {
             // Only show auth interface if user actually signed out
             // Don't show it during sign-in process or token refresh
             if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+              isProcessingOAuth = false;
               currentUser = null;
               userStats = null;
               showAuthInterface();
+            } else if (!isProcessingOAuth) {
+              // If we're not processing OAuth and there's no session, show auth
+              console.log('❌ No session and not processing OAuth, showing auth');
+              showAuthInterface();
             } else {
-              console.log('⏳ Auth state transitioning, waiting for session...');
+              console.log('⏳ Auth state transitioning during OAuth, waiting...');
             }
           }
         });
