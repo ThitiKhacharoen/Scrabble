@@ -4124,6 +4124,10 @@
     
     async function handleAuthChange(session) {
       console.log('🌐 handleAuthChange()', { session });
+      
+      // Always show game interface first, then load data
+      showGameInterface();
+      
       try {
         currentUser = session.user;
         await loadUserData(); // Wait for user data to load
@@ -4170,12 +4174,10 @@
           alert(`⚠️ WARNING\n\nYou have received a warning:\n${currentUser.warn_reason}\n\nPlease follow the community guidelines to avoid further action.`);
         }
         
-        console.log('✅ Showing game interface');
-        showGameInterface();
+        console.log('✅ Auth change complete');
       } catch (error) {
         console.error('❌ Error in handleAuthChange:', error);
-        // Still show game interface even if there's an error
-        showGameInterface();
+        // Game interface is already shown, just log the error
       }
     }
     
@@ -9598,6 +9600,19 @@
     document.addEventListener('DOMContentLoaded', async () => {
       console.log('🔐 Initializing auth...');
       
+      // Debug: Track auth flow across redirects
+      const authDebug = {
+        timestamp: new Date().toISOString(),
+        url: window.location.href,
+        hasCode: window.location.search.includes('code='),
+        hasToken: window.location.hash.includes('access_token'),
+        localStorage: localStorage.getItem('authDebug')
+      };
+      console.log('🔍 Auth Debug:', authDebug);
+      
+      // Store for next load
+      localStorage.setItem('authDebug', JSON.stringify(authDebug));
+      
       // Attach auth button listeners
       const googleBtn = document.getElementById('googleSignInBtn');
       if (googleBtn) {
@@ -9628,6 +9643,16 @@
         const { data: { session }, error } = await window.supabase.auth.getSession();
         
         console.log('📦 Session check:', session ? 'Found' : 'None', error ? 'Error: ' + error.message : '');
+        
+        // Debug: Show alert to see what's happening
+        if (window.location.search.includes('code=') || window.location.hash.includes('access_token')) {
+          console.log('🔄 Detected OAuth redirect with:', window.location.search, window.location.hash);
+          if (!session) {
+            alert('DEBUG: Redirect detected but no session found!\nError: ' + (error ? error.message : 'none'));
+          } else {
+            console.log('✅ Session found after redirect:', session.user.email);
+          }
+        }
         
         if (session) {
           console.log('✅ Existing session found for:', session.user.email);
