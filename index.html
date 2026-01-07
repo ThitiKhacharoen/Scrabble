@@ -4124,52 +4124,59 @@
     
     async function handleAuthChange(session) {
       console.log('🌐 handleAuthChange()', { session });
-      currentUser = session.user;
-      await loadUserData(); // Wait for user data to load
-      
-      // Check ban status
-      const isAllowed = await checkBanStatus();
-      if (!isAllowed) {
-        return; // User is banned, ban screen is shown
-      }
-      
-      // Show admin options if user is admin/owner (AFTER loadUserData completes)
-      console.log('🔍 Admin Check:', {
-        username: currentUser.username,
-        role: currentUser.role,
-        hasAdminRole: ['owner', 'admin', 'super_admin'].includes(currentUser.role)
-      });
-      
-      const adminPanelOption = document.getElementById('adminPanelOption');
-      const adminTabBtn = document.getElementById('adminTabBtn');
-      const adminSubTabAdmins = document.getElementById('adminSubTabAdmins');
-      
-      if (currentUser && ['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
-        // Show admin option in side panel menu
-        if (adminPanelOption) adminPanelOption.style.display = 'flex';
+      try {
+        currentUser = session.user;
+        await loadUserData(); // Wait for user data to load
         
-        // Show admin tab in settings
-        if (adminTabBtn) adminTabBtn.style.display = 'flex';
-        
-        // Show admins subtab only for owners and super_admins
-        if (['owner', 'super_admin'].includes(currentUser.role) && adminSubTabAdmins) {
-          adminSubTabAdmins.style.display = 'block';
+        // Check ban status
+        const isAllowed = await checkBanStatus();
+        if (!isAllowed) {
+          return; // User is banned, ban screen is shown
         }
         
-        console.log('✅ Admin access granted');
-      } else {
-        // Hide admin options for regular players
-        if (adminPanelOption) adminPanelOption.style.display = 'none';
-        if (adminTabBtn) adminTabBtn.style.display = 'none';
-        console.log('❌ Admin access denied - not an admin');
+        // Show admin options if user is admin/owner (AFTER loadUserData completes)
+        console.log('🔍 Admin Check:', {
+          username: currentUser.username,
+          role: currentUser.role,
+          hasAdminRole: ['owner', 'admin', 'super_admin'].includes(currentUser.role)
+        });
+        
+        const adminPanelOption = document.getElementById('adminPanelOption');
+        const adminTabBtn = document.getElementById('adminTabBtn');
+        const adminSubTabAdmins = document.getElementById('adminSubTabAdmins');
+        
+        if (currentUser && ['owner', 'admin', 'super_admin'].includes(currentUser.role)) {
+          // Show admin option in side panel menu
+          if (adminPanelOption) adminPanelOption.style.display = 'flex';
+          
+          // Show admin tab in settings
+          if (adminTabBtn) adminTabBtn.style.display = 'flex';
+          
+          // Show admins subtab only for owners and super_admins
+          if (['owner', 'super_admin'].includes(currentUser.role) && adminSubTabAdmins) {
+            adminSubTabAdmins.style.display = 'block';
+          }
+          
+          console.log('✅ Admin access granted');
+        } else {
+          // Hide admin options for regular players
+          if (adminPanelOption) adminPanelOption.style.display = 'none';
+          if (adminTabBtn) adminTabBtn.style.display = 'none';
+          console.log('❌ Admin access denied - not an admin');
+        }
+        
+        // Check for warnings
+        if (currentUser && currentUser.status === 'warned' && currentUser.warn_reason) {
+          alert(`⚠️ WARNING\n\nYou have received a warning:\n${currentUser.warn_reason}\n\nPlease follow the community guidelines to avoid further action.`);
+        }
+        
+        console.log('✅ Showing game interface');
+        showGameInterface();
+      } catch (error) {
+        console.error('❌ Error in handleAuthChange:', error);
+        // Still show game interface even if there's an error
+        showGameInterface();
       }
-      
-      // Check for warnings
-      if (currentUser && currentUser.status === 'warned' && currentUser.warn_reason) {
-        alert(`⚠️ WARNING\n\nYou have received a warning:\n${currentUser.warn_reason}\n\nPlease follow the community guidelines to avoid further action.`);
-      }
-      
-      showGameInterface();
     }
     
     function showAuthInterface() {
@@ -9637,9 +9644,15 @@
           if (session) {
             await handleAuthChange(session);
           } else {
-            currentUser = null;
-            userStats = null;
-            showAuthInterface();
+            // Only show auth interface if user actually signed out
+            // Don't show it during sign-in process or token refresh
+            if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+              currentUser = null;
+              userStats = null;
+              showAuthInterface();
+            } else {
+              console.log('⏳ Auth state transitioning, waiting for session...');
+            }
           }
         });
         
