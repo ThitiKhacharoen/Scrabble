@@ -1426,6 +1426,16 @@
     }
   </style>
   
+  <!-- Prevent email-decode.min.js errors (Cloudflare email protection) -->
+  <script>
+    // Prevent Cloudflare email-decode.min.js 404 errors
+    (function() {
+      var script = document.createElement('script');
+      script.src = 'data:text/javascript;base64,Ly8gRW1wdHkgc2NyaXB0';
+      document.head.appendChild(script);
+    })();
+  </script>
+  
   <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
