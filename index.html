@@ -5768,11 +5768,12 @@
     function setupPlayerConnection(conn) {
       const peerId = conn.peer;
       
+      // Store connection IMMEDIATELY to prevent race condition
+      // This ensures connections[peerId] exists before any messages are processed
+      connections[peerId] = conn;
+      
       conn.on('open', () => {
         console.log('✅ Player connected:', peerId);
-        
-        // Store connection
-        connections[peerId] = conn;
         
         // Setup message handler
         conn.on('data', (data) => handlePlayerMessage(peerId, data));
@@ -6617,7 +6618,7 @@
     // VERSION CHECK SYSTEM - DISABLED FOR NOW
     // ========================================
     /*
-    const CURRENT_VERSION = '3.0.9'; // Embedded dictionary version
+    const CURRENT_VERSION = '3.0.10'; // Embedded dictionary version
     const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/ThitiKhacharoen/Scrabble/main/version.txt';
     
     async function checkForUpdates() {
@@ -7434,15 +7435,6 @@
         const newTiles = this.drawTiles(tilesUsed);
         currentPlayer.rack = [...remainingTiles, ...newTiles];
         
-        // Clean up placed flags on all remaining tiles
-        currentPlayer.rack.forEach(tile => {
-          if (tile) {
-            tile.placed = false;
-            delete tile.row;
-            delete tile.col;
-          }
-        });
-        
         // Update legacy racks
         this.playerRack = this.players[0].rack;
         if (this.players.length > 1) {
@@ -7663,11 +7655,8 @@
           aiScoreValue.style.animation = 'letterPulse 0.8s ease-in-out infinite';
         }
         
-        // Get current AI player
-        const currentPlayer = this.players[this.currentPlayerIndex];
-        
-        // Try to find and play a valid word using current player's rack
-        const aiMove = await this.findBestAiMove(currentPlayer.rack);
+        // Try to find and play a valid word
+        const aiMove = await this.findBestAiMove();
         
         // Remove thinking animation
         if (aiScoreValue) {
@@ -7677,27 +7666,16 @@
         if (aiMove) {
           const {tiles, startRow, startCol, direction, score, word} = aiMove;
           
-          // Place tiles on board
+          // Place tiles
           for (let i = 0; i < tiles.length; i++) {
             const row = direction === 'horizontal' ? startRow : startRow + i;
             const col = direction === 'horizontal' ? startCol + i : startCol;
             this.board[row][col] = tiles[i];
           }
 
-          // Update current player's score
-          currentPlayer.score += score;
-          
-          // Remove used tiles from rack and refill
-          const tilesUsed = tiles.length;
-          currentPlayer.rack = currentPlayer.rack.filter(t => !tiles.includes(t));
-          const newTiles = this.drawTiles(tilesUsed);
-          currentPlayer.rack.push(...newTiles);
-          
-          // Sync legacy variables for backward compatibility
-          if (this.currentPlayerIndex === 1) {
-            this.aiScore = currentPlayer.score;
-            this.aiRack = currentPlayer.rack;
-          }
+          this.aiScore += score;
+          this.aiRack = this.aiRack.filter(t => !tiles.includes(t));
+          this.aiRack.push(...this.drawTiles(tiles.length));
           
           this.showMessage(`AI played "${word}" for ${score} points!`);
           this.firstMove = false;
@@ -7716,24 +7694,24 @@
           return;
         }
 
-        // Switch turn using the unified system
-        this.nextTurn();
+        this.currentTurn = 'player';
+        this.updateTurnIndicator();
       }
 
-      async findBestAiMove(rack) {
+      async findBestAiMove() {
         let allPossibleMoves = [];
         
         if (this.firstMove) {
           // First move - try to place word horizontally at center
-          allPossibleMoves = await this.findFirstMove(rack);
+          allPossibleMoves = await this.findFirstMove();
         } else {
           // Find all possible moves on the board
-          allPossibleMoves = await this.findAllPossibleMoves(rack);
+          allPossibleMoves = await this.findAllPossibleMoves();
         }
 
         // If still no moves, try a desperation strategy with 2-letter words
         if (allPossibleMoves.length === 0 && !this.firstMove) {
-          allPossibleMoves = await this.findDesperationMoves(rack);
+          allPossibleMoves = await this.findDesperationMoves();
         }
 
         if (allPossibleMoves.length === 0) {
@@ -7789,7 +7767,7 @@
           
           for (const move of topMoves) {
             // Simulate this move and evaluate opponent's best response
-            const evaluationScore = await this.evaluateMoveWithLookahead(move, lookaheadDepth, rack);
+            const evaluationScore = await this.evaluateMoveWithLookahead(move, lookaheadDepth);
             
             if (evaluationScore > bestScore) {
               bestScore = evaluationScore;
@@ -7803,14 +7781,15 @@
         return selectedMove;
       }
 
-      async evaluateMoveWithLookahead(move, depth, rack) {
+      async evaluateMoveWithLookahead(move, depth) {
         if (depth === 0) {
           return move.score; // Base case: just return the immediate score
         }
         
         // Make a temporary copy of the board state
         const originalBoard = this.board.map(row => row.slice());
-        const originalRack = [...rack];
+        const originalAiRack = [...this.aiRack];
+        const originalPlayerRack = [...this.playerRack];
         
         // Simulate playing this move
         const {tiles, startRow, startCol, direction} = move;
@@ -7820,15 +7799,14 @@
           this.board[row][col] = tiles[i];
         }
         
-        // Remove used tiles from rack (simulate)
-        const simulatedRack = rack.filter(t => !tiles.includes(t));
+        // Remove used tiles from AI rack (simulate)
+        this.aiRack = this.aiRack.filter(t => !tiles.includes(t));
         
-        // Simulate opponent's best counter-move (using player rack as opponent)
+        // Simulate opponent's best counter-move
         let opponentBestScore = 0;
         
-        // Quick simulation - just check top opponent moves
-        const opponentRack = this.players[0].rack; // Assume opponent is player 0
-        const opponentMoves = await this.findAllPossibleMoves(opponentRack);
+        // Quick simulation - just check top 3 opponent moves
+        const opponentMoves = await this.findAllPossibleMoves();
         if (opponentMoves.length > 0) {
           opponentMoves.sort((a, b) => b.score - a.score);
           const topOpponentMove = opponentMoves[0];
@@ -7845,10 +7823,10 @@
             }
             
             // Recursively evaluate AI's next move
-            const aiNextMoves = await this.findAllPossibleMoves(simulatedRack);
+            const aiNextMoves = await this.findAllPossibleMoves();
             if (aiNextMoves.length > 0) {
               aiNextMoves.sort((a, b) => b.score - a.score);
-              const futureScore = await this.evaluateMoveWithLookahead(aiNextMoves[0], depth - 1, simulatedRack);
+              const futureScore = await this.evaluateMoveWithLookahead(aiNextMoves[0], depth - 1);
               opponentBestScore = futureScore; // Use the recursive evaluation
             }
           }
@@ -7856,17 +7834,19 @@
         
         // Restore original board state
         this.board = originalBoard;
+        this.aiRack = originalAiRack;
+        this.playerRack = originalPlayerRack;
         
         // Evaluation: My score - Opponent's best response
         // Higher difficulty means we care more about denying opponent points
         return move.score - (opponentBestScore * 0.5);
       }
 
-      async findDesperationMoves(rack) {
+      async findDesperationMoves() {
         const moves = [];
         
         // Try all 2-letter combinations everywhere on board
-        const twoLetterPerms = this.getPermutations(rack, 2);
+        const twoLetterPerms = this.getPermutations(this.aiRack, 2);
         
         for (let row = 0; row < 15; row++) {
           for (let col = 0; col < 14; col++) {
@@ -7942,7 +7922,7 @@
         return moves;
       }
 
-      async findFirstMove(rack) {
+      async findFirstMove() {
         const moves = [];
         
         // Difficulty controls search depth - how many permutations to check
@@ -7959,9 +7939,9 @@
         // Hard: tries all lengths up to 7, all permutations
         
         // Try different word lengths from rack
-        for (let len = 2; len <= Math.min(maxLength, rack.length); len++) {
+        for (let len = 2; len <= Math.min(maxLength, this.aiRack.length); len++) {
           // Get all permutations of tiles
-          const permutations = this.getPermutations(rack, len);
+          const permutations = this.getPermutations(this.aiRack, len);
           const permsToCheck = Math.min(maxPermsToCheck, permutations.length);
           
           for (let i = 0; i < permsToCheck; i++) {
@@ -7990,7 +7970,7 @@
         return moves;
       }
 
-      async findAllPossibleMoves(rack) {
+      async findAllPossibleMoves() {
         const moves = [];
         
         // Difficulty controls search thoroughness
@@ -8022,8 +8002,8 @@
               
               if (hasAdjacentTile) {
                 // Try both horizontal and vertical
-                const hMoves = await this.findMovesAt(row, col, 'horizontal', maxWordLength, rack);
-                const vMoves = await this.findMovesAt(row, col, 'vertical', maxWordLength, rack);
+                const hMoves = await this.findMovesAt(row, col, 'horizontal', maxWordLength);
+                const vMoves = await this.findMovesAt(row, col, 'vertical', maxWordLength);
                 moves.push(...hMoves, ...vMoves);
                 
                 // Stop early based on difficulty
@@ -8038,7 +8018,7 @@
         return moves;
       }
 
-      async findMovesAt(row, col, direction, maxWordLength = 7, rack) {
+      async findMovesAt(row, col, direction, maxWordLength = 7) {
         const moves = [];
         
         // Limit permutations based on difficulty
@@ -8051,9 +8031,9 @@
         // Hard: check all permutations
         
         // Try different word lengths
-        for (let len = 2; len <= Math.min(maxWordLength, rack.length); len++) {
+        for (let len = 2; len <= Math.min(maxWordLength, this.aiRack.length); len++) {
           // Get all permutations
-          const permutations = this.getPermutations(rack, len);
+          const permutations = this.getPermutations(this.aiRack, len);
           const permsToCheck = Math.min(maxPermsPerLength, permutations.length);
           
           for (let i = 0; i < permsToCheck; i++) {
