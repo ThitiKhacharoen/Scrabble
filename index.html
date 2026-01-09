@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.9</title>
-  <!-- Version: 3.0.9 | Date: January 8, 2025 | FEATURES: Embedded SOWPODS Dictionary (267k words) - No network delays! -->
+  <title>Scrabble Game v3.0.10</title>
+  <!-- Version: 3.0.10 | Date: January 9, 2025 | FIXED: Multiplayer join race condition, removed non-existent game.init() call, hide dict banner -->
   <!-- Cache Buster: 20251227-0002 -->
   
   <!-- PWA Meta Tags -->
@@ -5972,9 +5972,8 @@
       document.getElementById('gameBoard').style.display = 'flex';
       document.getElementById('settingsBtn').style.display = 'block';
       
-      // Initialize game
+      // Initialize game (constructor automatically calls initializeGame())
       game = new ScrabbleGame('online');
-      game.init();
       
       console.log('🎮 Multi-player game started!');
       console.log('Players:', lobbyPlayers);
@@ -6603,7 +6602,7 @@
     
     // Basic common words for offline validation
     // ========================================
-    // EMBEDDED SOWPODS DICTIONARY (v3.0.9)
+    // EMBEDDED SOWPODS DICTIONARY (v3.0.10)
     // ========================================
     // 267751 words (max 15 letters) - No network required!
     // Dictionary loads instantly, no async delays
@@ -9293,6 +9292,12 @@
     // AUTH INITIALIZATION (at end so all functions exist)
     // ============================================
     document.addEventListener('DOMContentLoaded', async () => {
+      // Hide dictionary loading banner (embedded dictionary loads instantly)
+      const dictStatus = document.getElementById('dict-status');
+      if (dictStatus) {
+        dictStatus.style.display = 'none';
+      }
+      
       console.log('🔐 Initializing auth...');
       
       // Attach auth button listeners
