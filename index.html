@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.10</title>
-  <!-- Version: 3.0.10 | Date: January 9, 2025 | FIXED: Multiplayer join race condition, removed non-existent game.init() call, hide dict banner -->
+  <title>Scrabble Game v3.0.12</title>
+  <!-- Version: 3.0.11 | Date: January 9, 2025 | DIAGNOSTIC: Added extensive logging to debug tile rendering issues -->
   <!-- Cache Buster: 20251227-0002 -->
   
   <!-- PWA Meta Tags -->
@@ -4846,6 +4846,14 @@
     // END AUTHENTICATION SYSTEM
     // ========================================
     
+    // ========================================
+    // v3.0.12 - NULL CHECK FIX
+    // Fixed: Added comprehensive null checks for all DOM element accesses
+    // to prevent "Cannot read properties of null" errors in multiplayer mode
+    // Affected functions: startMultiplayerGame, startGame, 
+    // backToMultiplayerSetup, showBanScreen
+    // ========================================
+    
     let gameMode = null; // 'ai' or 'human' or 'online'
     let aiDifficulty = 5; // 1-10 difficulty scale
     let player1Name = 'Player 1';
@@ -5717,12 +5725,25 @@
     }
 
     function backToMultiplayerSetup() {
-      document.getElementById('joinGameScreen').style.display = 'none';
-      document.getElementById('createGameScreen').style.display = 'none';
-      document.getElementById('deviceSelection').style.display = 'none';
-      document.getElementById('playerNames').style.display = 'none';
-      document.getElementById('modeSelection').style.display = 'none';
-      document.getElementById('multiplayerSetup').style.display = 'flex';
+      const elements = [
+        'joinGameScreen',
+        'createGameScreen',
+        'deviceSelection',
+        'playerNames',
+        'modeSelection'
+      ];
+      
+      elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      
+      const multiplayerSetup = document.getElementById('multiplayerSetup');
+      if (multiplayerSetup) {
+        multiplayerSetup.style.display = 'flex';
+      } else {
+        console.error('❌ multiplayerSetup element not found');
+      }
     }
 
     // ============================================
@@ -5964,13 +5985,43 @@
     }
     
     function startMultiplayerGame() {
-      // Hide lobby
-      document.getElementById('createGameScreen').style.display = 'none';
-      document.getElementById('joinGameScreen').style.display = 'none';
+      console.log('🎮 startMultiplayerGame() called');
+      console.log('📊 lobbyPlayers:', lobbyPlayers);
+      console.log('📊 lobbyPlayers.length:', lobbyPlayers.length);
+      console.log('📊 myPlayerOrder:', myPlayerOrder);
+      console.log('📊 currentPlayerIndex:', currentPlayerIndex);
+      
+      // Hide lobby with null checks
+      const createScreen = document.getElementById('createGameScreen');
+      const joinScreen = document.getElementById('joinGameScreen');
+      const gameBoard = document.getElementById('gameBoard');
+      const settingsBtn = document.getElementById('settingsBtn');
+      
+      if (createScreen) {
+        createScreen.style.display = 'none';
+      } else {
+        console.warn('⚠️ createGameScreen element not found');
+      }
+      
+      if (joinScreen) {
+        joinScreen.style.display = 'none';
+      } else {
+        console.warn('⚠️ joinGameScreen element not found');
+      }
       
       // Show game board
-      document.getElementById('gameBoard').style.display = 'flex';
-      document.getElementById('settingsBtn').style.display = 'block';
+      if (gameBoard) {
+        gameBoard.style.display = 'flex';
+      } else {
+        console.error('❌ gameBoard element not found - cannot start game');
+        return;
+      }
+      
+      if (settingsBtn) {
+        settingsBtn.style.display = 'block';
+      } else {
+        console.warn('⚠️ settingsBtn element not found');
+      }
       
       // Initialize game (constructor automatically calls initializeGame())
       game = new ScrabbleGame('online');
@@ -5978,7 +6029,8 @@
       console.log('🎮 Multi-player game started!');
       console.log('Players:', lobbyPlayers);
       console.log('My order:', myPlayerOrder);
-      console.log('Current turn:', lobbyPlayers[currentPlayerIndex].name);
+      console.log('Current turn:', lobbyPlayers[currentPlayerIndex]?.name);
+      console.log('Game.players:', game.players);
     }
     
     // ============================================
@@ -6538,33 +6590,56 @@
         aiDifficulty = difficulty;
       }
       
-      document.getElementById('modeSelection').style.display = 'none';
-      document.getElementById('playerNames').style.display = 'none';
-      document.getElementById('difficultySelection').style.display = 'none';
-      document.getElementById('deviceSelection').style.display = 'none';
-      document.getElementById('multiplayerSetup').style.display = 'none';
-      document.getElementById('createGameScreen').style.display = 'none';
-      document.getElementById('joinGameScreen').style.display = 'none';
-      document.getElementById('gameBoard').style.display = 'flex';
+      // Hide all screens with null checks
+      const screensToHide = [
+        'modeSelection',
+        'playerNames',
+        'difficultySelection',
+        'deviceSelection',
+        'multiplayerSetup',
+        'createGameScreen',
+        'joinGameScreen'
+      ];
+      
+      screensToHide.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      
+      // Show game board
+      const gameBoard = document.getElementById('gameBoard');
+      if (gameBoard) {
+        gameBoard.style.display = 'flex';
+      } else {
+        console.error('❌ gameBoard element not found - cannot start game');
+        return;
+      }
       
       // Show chat toggle for online mode
       if (mode === 'online') {
-        document.getElementById('chatToggle').style.display = 'block';
+        const chatToggle = document.getElementById('chatToggle');
+        if (chatToggle) chatToggle.style.display = 'block';
       }
       
+      // Set player labels with null checks
+      const player1Label = document.getElementById('player1Label');
+      const player2Label = document.getElementById('player2Label');
+      
       if (mode === 'human') {
-        document.getElementById('player1Label').textContent = player1Name;
-        document.getElementById('player2Label').textContent = player2Name;
+        if (player1Label) player1Label.textContent = player1Name;
+        if (player2Label) player2Label.textContent = player2Name;
       } else if (mode === 'online') {
-        document.getElementById('player1Label').textContent = player1Name;
-        document.getElementById('player2Label').textContent = player2Name;
+        if (player1Label) player1Label.textContent = player1Name;
+        if (player2Label) player2Label.textContent = player2Name;
       } else {
-        document.getElementById('player1Label').textContent = 'You';
+        if (player1Label) player1Label.textContent = 'You';
         // Show bot name and rating if available
-        if (currentBotPersonality) {
-          document.getElementById('player2Label').textContent = `${currentBotPersonality.name} (${currentBotPersonality.rating})`;
-        } else {
-          document.getElementById('player2Label').textContent = 'AI';
+        if (player2Label) {
+          if (currentBotPersonality) {
+            player2Label.textContent = `${currentBotPersonality.name} (${currentBotPersonality.rating})`;
+          } else {
+            player2Label.textContent = 'AI';
+          }
         }
       }
       
@@ -6602,7 +6677,7 @@
     
     // Basic common words for offline validation
     // ========================================
-    // EMBEDDED SOWPODS DICTIONARY (v3.0.10)
+    // EMBEDDED SOWPODS DICTIONARY (v3.0.11)
     // ========================================
     // 267751 words (max 15 letters) - No network required!
     // Dictionary loads instantly, no async delays
@@ -6617,7 +6692,7 @@
     // VERSION CHECK SYSTEM - DISABLED FOR NOW
     // ========================================
     /*
-    const CURRENT_VERSION = '3.0.10'; // Embedded dictionary version
+    const CURRENT_VERSION = '3.0.12'; // Embedded dictionary version
     const VERSION_CHECK_URL = 'https://raw.githubusercontent.com/ThitiKhacharoen/Scrabble/main/version.txt';
     
     async function checkForUpdates() {
@@ -6810,6 +6885,12 @@
 
     class ScrabbleGame {
       constructor(mode, difficulty) {
+        console.log('🎲 ScrabbleGame constructor called');
+        console.log('  mode:', mode);
+        console.log('  difficulty:', difficulty);
+        console.log('  lobbyPlayers:', lobbyPlayers);
+        console.log('  lobbyPlayers.length:', lobbyPlayers.length);
+        
         this.gameMode = mode; // 'ai', 'human', or 'online'
         this.aiDifficulty = difficulty || 5; // 1-10 scale (1=easiest, 10=hardest)
         this.board = Array(15).fill(null).map(() => Array(15).fill(null));
@@ -6817,6 +6898,7 @@
         
         // v2.0.0: Multi-player support
         if (this.gameMode === 'online' && lobbyPlayers.length > 0) {
+          console.log('✅ Using online multiplayer mode');
           // Online multi-player mode
           this.players = lobbyPlayers.map(p => ({
             id: p.id,
@@ -6828,6 +6910,7 @@
           }));
           this.currentPlayerIndex = currentPlayerIndex; // Set by lobby
         } else if (this.gameMode === 'human') {
+          console.log('✅ Using local 2-player mode');
           // Local 2-player mode
           this.players = [
             { id: 'p1', name: player1Name, order: 1, score: 0, rack: [], isMe: true },
@@ -6835,6 +6918,8 @@
           ];
           this.currentPlayerIndex = 0;
         } else {
+          console.log('⚠️ Falling back to AI mode');
+          console.log('  Reason: gameMode=' + this.gameMode + ', lobbyPlayers.length=' + lobbyPlayers.length);
           // AI mode (single player)
           this.players = [
             { id: 'player', name: 'You', order: 1, score: 0, rack: [], isMe: true },
@@ -6842,6 +6927,9 @@
           ];
           this.currentPlayerIndex = 0;
         }
+        
+        console.log('  this.players:', this.players);
+        console.log('  this.currentPlayerIndex:', this.currentPlayerIndex);
         
         // Legacy support (for old code that still references these)
         this.playerRack = this.players[0].rack;
@@ -7003,9 +7091,11 @@
       }
 
       initializeGame() {
+        console.log('🎯 initializeGame() called');
         // Draw tiles for all players
-        this.players.forEach(player => {
+        this.players.forEach((player, idx) => {
           player.rack = this.drawTiles(7);
+          console.log(`  Player ${idx} (${player.name}) rack:`, player.rack);
         });
         
         // Update legacy references
@@ -7014,10 +7104,15 @@
           this.aiRack = this.players[1].rack;
         }
         
+        console.log('  Calling renderBoard...');
         this.renderBoard();
+        console.log('  Calling renderRack...');
         this.renderRack();
+        console.log('  Calling updateScores...');
         this.updateScores();
+        console.log('  Calling updateInfo...');
         this.updateInfo();
+        console.log('  Calling setupEventListeners...');
         this.setupEventListeners();
         
         // Show starting message
@@ -7037,7 +7132,9 @@
       }
 
       renderBoard() {
+        console.log('🎲 renderBoard() called');
         const boardEl = document.getElementById('board');
+        console.log('  boardEl:', boardEl);
         boardEl.innerHTML = '';
         
         for (let row = 0; row < 15; row++) {
@@ -7107,7 +7204,9 @@
       }
 
       renderRack() {
+        console.log('🎴 renderRack() called');
         const rackEl = document.getElementById('rack');
+        console.log('  rackEl:', rackEl);
         
         // v1.3.2 Fix: Force clear any lingering filters/styles
         rackEl.style.filter = 'none';
@@ -7121,16 +7220,29 @@
         const currentPlayer = this.players[this.currentPlayerIndex];
         const currentRack = currentPlayer.rack;
         
+        console.log('  currentPlayer:', currentPlayer);
+        console.log('  currentRack:', currentRack);
+        console.log('  gameMode:', this.gameMode);
+        console.log('  currentPlayer.isMe:', currentPlayer.isMe);
+        
         // Only show rack if it's my turn in online mode
         if (this.gameMode === 'online' && !currentPlayer.isMe) {
+          console.log('  ⚠️ Not my turn in online mode, showing waiting message');
           rackEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #64748b;">Waiting for other player...</div>';
           return;
         }
         
+        console.log('  Rendering ' + currentRack.length + ' tiles...');
         currentRack.forEach((tile, index) => {
           // v1.3.2 Fix: Defensive check for undefined/null tiles
-          if (!tile) return;
-          if (tile.placed) return;
+          if (!tile) {
+            console.log('    Tile ' + index + ' is null/undefined');
+            return;
+          }
+          if (tile.placed) {
+            console.log('    Tile ' + index + ' is already placed');
+            return;
+          }
           
           if (tile) {
             const tileEl = document.createElement('div');
@@ -7154,8 +7266,10 @@
             tileEl._tileIndex = index;
             tileEl.addEventListener('click', () => this.selectTile(tile, index));
             rackEl.appendChild(tileEl);
+            console.log('    Added tile: ' + tile.letter + ' (' + tile.points + ')');
           }
         });
+        console.log('  renderRack() complete');
       }
 
       selectTile(tile, index) {
@@ -9200,12 +9314,19 @@
     }
 
     function showBanScreen(userData) {
-      // Hide all other interfaces
-      document.getElementById('authContainer').style.display = 'none';
-      document.getElementById('modeSelection').style.display = 'none';
-      document.getElementById('gameBoard').style.display = 'none';
-      document.getElementById('settingsBtn').style.display = 'none';
-      document.getElementById('adminPanelBtn').style.display = 'none';
+      // Hide all other interfaces with null checks
+      const elementsToHide = [
+        'authContainer',
+        'modeSelection',
+        'gameBoard',
+        'settingsBtn',
+        'adminPanelBtn'
+      ];
+      
+      elementsToHide.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
       
       // Create and show ban screen
       let banScreen = document.getElementById('banScreen');
