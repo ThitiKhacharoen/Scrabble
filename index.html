@@ -3,11 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.13</title>
-  <!-- Version: 3.0.13 | Date: January 15, 2025 | CRITICAL FIX: Added comprehensive cross-word validation to prevent invalid moves -->
-  <!-- Cache Buster: 20250115-0001 -->
+  <title>Scrabble Game v3.0.14</title>
+  <!-- Version: 3.0.14 | Date: January 15, 2025 | CRITICAL FIX: Added validation to opponent moves in online play -->
+  <!-- Cache Buster: 20250115-0002 -->
   
   <!--
+  RELEASE NOTES v3.0.14 - January 15, 2025
+  ========================================
+  
+  🔧 CRITICAL BUG FIX: Opponent Move Validation (Online Play)
+  - Fixed: Opponent moves in online games bypassed ALL validation
+  - Root cause: applyRemoteMove() directly applied tiles without checking validity
+  - Impact: Invalid words from opponents could be scored, breaking game integrity
+  - Solution: applyRemoteMove() now validates all words before applying moves
+  
+  🛡️ NEW SECURITY FEATURES:
+  - Opponent moves now validated peer-to-peer
+  - Invalid opponent moves are rejected with clear error message
+  - Prevents cheating in online games
+  - Direction auto-detection for opponent moves
+  - Comprehensive error handling and logging
+  
+  🎯 IMPROVEMENTS:
+  - Better error messages for rejected opponent moves
+  - Added try-catch protection around opponent move validation
+  - Console logging for debugging online game issues
+  - applyRemoteMove() is now async to support validation
+  
+  🐛 BUGS FIXED:
+  - Opponent can no longer score with invalid words in online games
+  - Score properly reflects only valid moves
+  - Game state consistency maintained across both clients
+  
+  ==========================================
+  
   RELEASE NOTES v3.0.13 - January 15, 2025
   ========================================
   
@@ -7670,15 +7699,40 @@
 
         // Validate ALL words formed (main word + cross-words)
         this.showMessage('Validating words...');
-        const validation = await validateAllFormedWords(this.board, this.placedTiles, this.direction);
         
-        if (!validation.valid) {
+        // CRITICAL: Ensure tiles aren't already on the board before validation
+        const tilesAlreadyOnBoard = this.placedTiles.some(({row, col}) => this.board[row][col] !== null);
+        if (tilesAlreadyOnBoard) {
+          console.error('⚠️ CRITICAL: Tiles already on board before validation!');
+          // This shouldn't happen, but if it does, we need to handle it
+          this.placedTiles.forEach(({row, col}) => {
+            if (this.board[row][col]) {
+              console.error(`  - Tile at ${row},${col}: ${this.board[row][col].letter}`);
+            }
+          });
+        }
+        
+        let validation;
+        try {
+          validation = await validateAllFormedWords(this.board, this.placedTiles, this.direction);
+          console.log('🔍 Validation result:', validation);
+        } catch (error) {
+          console.error('❌ Validation error:', error);
           SFX.wordFail();
-          this.showMessage(`"${validation.invalidWord}" is not a valid word. Try again.`);
+          this.showMessage('Error validating words. Please try again.');
+          return;
+        }
+        
+        if (!validation || !validation.valid) {
+          SFX.wordFail();
+          const invalidWord = validation?.invalidWord || 'unknown';
+          console.log('❌ Validation failed:', invalidWord);
+          this.showMessage(`"${invalidWord}" is not a valid word. Try again.`);
           return;
         }
         
         const word = validation.mainWord;
+        console.log('✅ All words valid. Main word:', word);
 
         // Calculate score
         const score = this.calculateCurrentScore();
@@ -8861,7 +8915,9 @@
       }
 
       // Online multiplayer methods
-      applyRemoteMove(data) {
+      async applyRemoteMove(data) {
+        console.log('📥 Applying remote move:', data);
+        
         // Clear opponent preview tiles since they're now playing
         this.opponentPreviewTiles = [];
         
@@ -8872,7 +8928,44 @@
           return;
         }
         
-        // Apply move to board
+        // VALIDATION: Verify the opponent's move is valid
+        // This prevents cheating and ensures game integrity
+        try {
+          const placedTiles = data.tiles.map(({letter, points, row, col}) => ({
+            tile: {letter, points},
+            row,
+            col
+          }));
+          
+          // Determine direction from placed tiles
+          let direction = 'horizontal';
+          if (placedTiles.length > 1) {
+            const sameRow = placedTiles.every(pt => pt.row === placedTiles[0].row);
+            const sameCol = placedTiles.every(pt => pt.col === placedTiles[0].col);
+            if (sameCol) direction = 'vertical';
+          } else {
+            // Single tile - check neighbors
+            const {row, col} = placedTiles[0];
+            const hasVertNeighbor = (row > 0 && this.board[row-1][col]) || (row < 14 && this.board[row+1][col]);
+            if (hasVertNeighbor) direction = 'vertical';
+          }
+          
+          const validation = await validateAllFormedWords(this.board, placedTiles, direction);
+          
+          if (!validation.valid) {
+            console.error('❌ Opponent played invalid word:', validation.invalidWord);
+            this.showMessage(`⚠️ Opponent attempted invalid word "${validation.invalidWord}". Move rejected.`);
+            return; // Don't apply the invalid move
+          }
+          
+          console.log('✅ Opponent move validated:', validation.mainWord);
+        } catch (error) {
+          console.error('Error validating opponent move:', error);
+          this.showMessage('⚠️ Error validating opponent move. Please report this.');
+          return;
+        }
+        
+        // Apply move to board (only after validation passes)
         data.tiles.forEach(({letter, points, row, col}) => {
           this.board[row][col] = {letter, points};
         });
