@@ -3,9 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Scrabble Game v3.0.12</title>
-  <!-- Version: 3.0.11 | Date: January 9, 2025 | DIAGNOSTIC: Added extensive logging to debug tile rendering issues -->
-  <!-- Cache Buster: 20251227-0002 -->
+  <title>Scrabble Game v3.0.13</title>
+  <!-- Version: 3.0.13 | Date: January 15, 2025 | CRITICAL FIX: Added comprehensive cross-word validation to prevent invalid moves -->
+  <!-- Cache Buster: 20250115-0001 -->
+  
+  <!--
+  RELEASE NOTES v3.0.13 - January 15, 2025
+  ========================================
+  
+  🔧 CRITICAL BUG FIX: Word Validation
+  - Fixed hang/freeze issue during word validation
+  - Root cause: Player moves only validated main word, not cross-words (perpendicular words)
+  - AI moves were already validating cross-words correctly
+  - This mismatch allowed invalid cross-words to be played, causing inconsistent game state
+  
+  ✨ NEW FEATURES:
+  - Added validateAllFormedWords() function - comprehensive validation of all words formed
+  - Now checks main word + all perpendicular cross-words formed by each placed tile
+  - Better error messages showing which specific word is invalid
+  - Validation message changed from "Validating word..." to "Validating words..." (plural)
+  
+  🎯 IMPROVEMENTS:
+  - Validation logic now matches Scrabble rules: ALL formed words must be valid
+  - Prevents placing tiles that create invalid cross-words
+  - Performance remains fast due to dictionary Set lookup (O(1))
+  - Blank tile validation still works correctly with cross-words
+  
+  📋 TECHNICAL DETAILS:
+  - validateAllFormedWords() returns {valid, invalidWord, mainWord}
+  - Checks each placed tile for perpendicular word formation
+  - Extends in both directions to find complete cross-words
+  - Only validates cross-words that are 2+ letters (single letters don't count)
+  - Added comprehensive console logging for debugging
+  
+  🐛 BUG FIXED:
+  - Hang when placing tiles with blanks in cross-words
+  - Invalid cross-words being accepted
+  - Inconsistent validation between player and AI moves
+  -->
   
   <!-- PWA Meta Tags -->
   <meta name="description" content="Play Scrabble online with AI opponents or friends. Features 4 beautiful themes, multiplayer modes, and full SOWPODS dictionary.">
@@ -6883,6 +6918,157 @@
       return isValid;
     }
 
+    /**
+     * Validates all words formed by a move (main word + cross-words)
+     * Returns: {valid: boolean, invalidWord: string|null, mainWord: string}
+     */
+    async function validateAllFormedWords(board, placedTiles, direction) {
+      console.log('🔍 validateAllFormedWords called');
+      console.log('  placedTiles:', placedTiles);
+      console.log('  direction:', direction);
+      
+      // Sort tiles by position
+      const tiles = [...placedTiles].sort((a, b) => {
+        if (direction === 'horizontal') return a.col - b.col;
+        return a.row - b.row;
+      });
+      
+      const startRow = tiles[0].row;
+      const startCol = tiles[0].col;
+      
+      // FIRST: Build and validate the main word
+      let mainWord = '';
+      if (direction === 'horizontal') {
+        let col = startCol;
+        // Find actual start of word (might extend left of first placed tile)
+        while (col > 0 && board[startRow][col - 1]) {
+          col--;
+        }
+        const wordStartCol = col;
+        
+        // Find end of word
+        let endCol = startCol + tiles.length - 1;
+        while (endCol < 14 && board[startRow][endCol + 1]) {
+          endCol++;
+        }
+        
+        // Build main word
+        for (let c = wordStartCol; c <= endCol; c++) {
+          if (board[startRow][c]) {
+            mainWord += board[startRow][c].letter;
+          } else {
+            // Find placed tile at this position
+            const placed = placedTiles.find(pt => pt.row === startRow && pt.col === c);
+            mainWord += placed ? placed.tile.letter : '';
+          }
+        }
+      } else {
+        let row = startRow;
+        // Find actual start of word
+        while (row > 0 && board[row - 1][startCol]) {
+          row--;
+        }
+        const wordStartRow = row;
+        
+        // Find end of word
+        let endRow = startRow + tiles.length - 1;
+        while (endRow < 14 && board[endRow + 1][startCol]) {
+          endRow++;
+        }
+        
+        // Build main word
+        for (let r = wordStartRow; r <= endRow; r++) {
+          if (board[r][startCol]) {
+            mainWord += board[r][startCol].letter;
+          } else {
+            const placed = placedTiles.find(pt => pt.row === r && pt.col === startCol);
+            mainWord += placed ? placed.tile.letter : '';
+          }
+        }
+      }
+      
+      console.log('  mainWord:', mainWord);
+      
+      // Validate main word if it's longer than 1 letter
+      if (mainWord.length > 1) {
+        const isValid = await validateWord(mainWord);
+        if (!isValid) {
+          console.log('  ❌ Main word invalid:', mainWord);
+          return {valid: false, invalidWord: mainWord, mainWord};
+        }
+      }
+      
+      // SECOND: Check each placed tile for cross-words (perpendicular)
+      for (const {tile, row, col} of placedTiles) {
+        let crossWord = '';
+        
+        if (direction === 'horizontal') {
+          // Check vertical cross-word
+          let startR = row;
+          let endR = row;
+          
+          // Extend up
+          while (startR > 0 && board[startR - 1][col]) {
+            startR--;
+          }
+          
+          // Extend down
+          while (endR < 14 && board[endR + 1][col]) {
+            endR++;
+          }
+          
+          // Build cross-word (include the placed tile)
+          if (startR !== endR) { // Only if there's more than just the placed tile
+            for (let r = startR; r <= endR; r++) {
+              if (r === row) {
+                crossWord += tile.letter;
+              } else {
+                crossWord += board[r][col].letter;
+              }
+            }
+          }
+        } else {
+          // Check horizontal cross-word
+          let startC = col;
+          let endC = col;
+          
+          // Extend left
+          while (startC > 0 && board[row][startC - 1]) {
+            startC--;
+          }
+          
+          // Extend right
+          while (endC < 14 && board[row][endC + 1]) {
+            endC++;
+          }
+          
+          // Build cross-word
+          if (startC !== endC) {
+            for (let c = startC; c <= endC; c++) {
+              if (c === col) {
+                crossWord += tile.letter;
+              } else {
+                crossWord += board[row][c].letter;
+              }
+            }
+          }
+        }
+        
+        // Validate cross-word if it exists and is more than 1 letter
+        if (crossWord.length > 1) {
+          console.log('  Checking cross-word:', crossWord);
+          const isValid = await validateWord(crossWord);
+          if (!isValid) {
+            console.log('  ❌ Cross-word invalid:', crossWord);
+            return {valid: false, invalidWord: crossWord, mainWord};
+          }
+        }
+      }
+      
+      console.log('  ✅ All words valid');
+      return {valid: true, invalidWord: null, mainWord};
+    }
+
     class ScrabbleGame {
       constructor(mode, difficulty) {
         console.log('🎲 ScrabbleGame constructor called');
@@ -7482,18 +7668,17 @@
           }
         }
 
-        // Get the word formed
-        const word = this.getFormedWord();
+        // Validate ALL words formed (main word + cross-words)
+        this.showMessage('Validating words...');
+        const validation = await validateAllFormedWords(this.board, this.placedTiles, this.direction);
         
-        // Validate word with dictionary
-        this.showMessage('Validating word...');
-        const isValid = await validateWord(word);
-        
-        if (!isValid) {
+        if (!validation.valid) {
           SFX.wordFail();
-          this.showMessage(`"${word}" is not a valid English word. Try again.`);
+          this.showMessage(`"${validation.invalidWord}" is not a valid word. Try again.`);
           return;
         }
+        
+        const word = validation.mainWord;
 
         // Calculate score
         const score = this.calculateCurrentScore();
